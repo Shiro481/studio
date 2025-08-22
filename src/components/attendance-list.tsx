@@ -1,8 +1,19 @@
 "use client";
 
 import type { FC } from 'react';
-import { Download, ListChecks } from 'lucide-react';
+import { Download, ListChecks, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Card,
   CardContent,
@@ -23,11 +34,12 @@ import type { AttendanceRecord } from '@/types';
 
 interface AttendanceListProps {
   records: AttendanceRecord[];
+  onClear: () => void;
 }
 
-export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
+export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) => {
   const exportToCSV = () => {
-    const headers = ['Student Name', 'Subject', 'Timestamp', 'Status'];
+    const headers = ['Student Name', 'Subject', 'Timestamp', 'Recorded By', 'Status'];
     const csvRows = [
       headers.join(','),
       ...records.map(record =>
@@ -35,6 +47,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
           `"${record.studentName}"`,
           `"${record.subject}"`,
           `"${new Date(record.timestamp).toLocaleString()}"`,
+          `"${record.recordedBy}"`,
           record.isValid ? 'Valid' : 'Invalid',
         ].join(',')
       ),
@@ -60,15 +73,43 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
             A log of all scanned attendance records.
           </CardDescription>
         </div>
-        <Button
-          onClick={exportToCSV}
-          disabled={records.length === 0}
-          variant="outline"
-          size="sm"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  disabled={records.length === 0}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear History
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete all attendance records.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={onClear} className="bg-destructive hover:bg-destructive/90">
+                    Yes, clear history
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button
+              onClick={exportToCSV}
+              disabled={records.length === 0}
+              variant="outline"
+              size="sm"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative w-full overflow-auto max-h-[60vh]">
@@ -78,6 +119,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
                 <TableHead>Student Name</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Timestamp</TableHead>
+                <TableHead>Recorded By</TableHead>
                 <TableHead className="text-right">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -92,6 +134,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
                     <TableCell>
                       {new Date(record.timestamp).toLocaleString()}
                     </TableCell>
+                    <TableCell>{record.recordedBy}</TableCell>
                     <TableCell className="text-right">
                       <Badge
                         variant={record.isValid ? 'default' : 'destructive'}
@@ -105,7 +148,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records }) => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="h-24 text-center text-muted-foreground"
                   >
                     <div className="flex flex-col items-center gap-2">

@@ -14,18 +14,24 @@ export default function Home() {
   const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const [sortedRecords, setSortedRecords] = useState<AttendanceRecord[]>([]);
   const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Mathematics', 'Science', 'History', 'English', 'Art']);
+  const [isLoggedIn] = useLocalStorage('isLoggedIn', false);
 
   useEffect(() => {
     const sorted = [...records].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setSortedRecords(sorted);
   }, [records]);
 
-  const handleAddRecord = (newRecord: Omit<AttendanceRecord, 'id'>) => {
+  const handleAddRecord = (newRecord: Omit<AttendanceRecord, 'id' | 'recordedBy'>) => {
     const recordWithId: AttendanceRecord = {
       ...newRecord,
       id: crypto.randomUUID(),
+      recordedBy: isLoggedIn ? 'User' : 'Guest',
     };
     setRecords(prevRecords => [...prevRecords, recordWithId]);
+  };
+
+  const handleClearRecords = () => {
+    setRecords([]);
   };
 
   return (
@@ -53,7 +59,7 @@ export default function Home() {
           <SubjectManager subjects={subjects} setSubjects={setSubjects} />
         </div>
         <div className="lg:col-span-2">
-          <AttendanceList records={sortedRecords} />
+          <AttendanceList records={sortedRecords} onClear={handleClearRecords} />
         </div>
       </main>
     </div>
