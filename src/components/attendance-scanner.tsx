@@ -46,6 +46,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const stopCamera = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
     }
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -103,8 +104,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       if (ctx) {
         canvas.height = video.videoHeight;
         canvas.width = video.videoWidth;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: 'dontInvert',
@@ -112,7 +113,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
           if (code?.data) {
             handleScan(code.data);
-            return; 
+            return; // Stop ticking once a code is found
           }
         } catch (e) {
             // Ignore getImageData errors that can happen when the canvas is not ready
@@ -126,47 +127,55 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
   useEffect(() => {
     const startCamera = async () => {
-      if (isScanning) {
-        setCameraError(null);
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          setHasCameraPermission(true);
-  
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.onloadedmetadata = () => {
-              videoRef.current?.play().catch(err => console.error("Video play error:", err));
-              animationFrameRef.current = requestAnimationFrame(tick);
-            };
-          }
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            if (error instanceof Error) {
-                if (error.name === 'NotAllowedError') {
-                    setCameraError('Camera access was denied. Please enable camera permissions in your browser settings.');
-                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
-                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                    setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
-                } else {
-                    setCameraError('An unexpected error occurred while accessing the camera.');
-                }
-            } else {
-                setCameraError('An unknown error occurred.');
+      setCameraError(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          // Use a new function for the event listener to avoid stale closure issues
+          const onCanPlay = () => {
+             videoRef.current?.play().catch(err => console.error("Video play error:", err));
+             animationFrameRef.current = requestAnimationFrame(tick);
+          };
+          videoRef.current.addEventListener('loadedmetadata', onCanPlay);
+          // Cleanup this specific event listener
+          return () => {
+            if (videoRef.current) {
+                videoRef.current.removeEventListener('loadedmetadata', onCanPlay);
             }
-          setHasCameraPermission(false);
-          setIsScanning(false);
+          }
         }
-      } else {
-        stopCamera();
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        if (error instanceof Error) {
+            if (error.name === 'NotAllowedError') {
+                setCameraError('Camera access was denied. Please enable camera permissions in your browser settings.');
+            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
+            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
+            } else {
+                setCameraError('An unexpected error occurred while accessing the camera.');
+            }
+        } else {
+            setCameraError('An unknown error occurred.');
+        }
+        setHasCameraPermission(false);
+        setIsScanning(false);
       }
     };
-    
-    startCamera();
-  
-    return () => {
+
+    if (isScanning) {
+      const cleanupPromise = startCamera();
+      return () => {
+        stopCamera();
+        cleanupPromise.then(cleanup => cleanup && cleanup());
+      };
+    } else {
       stopCamera();
-    };
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isScanning]);
 
@@ -230,7 +239,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             {isScanning && hasCameraPermission && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
-             {!isScanning && hasCameraPermission && (
+             {!isScanning && hasCameraPermission === true && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />
                 </div>
