@@ -4,6 +4,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { app } from '@/lib/firebase';
+import { useToast } from './use-toast';
 
 const auth = getAuth(app);
 
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,7 +36,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithPopup(auth, provider);
       router.push('/');
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/configuration-not-found') {
+        toast({
+            variant: 'destructive',
+            title: 'Configuration Error',
+            description: 'Google Sign-In is not enabled for this project. Please enable it in the Firebase console.',
+        });
+      } else {
+        toast({
+            variant: 'destructive',
+            title: 'Sign-in Failed',
+            description: 'An unexpected error occurred during sign-in. Please try again.',
+        });
+      }
       console.error("Error signing in with Google: ", error);
     }
   };
@@ -45,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push('/login');
     } catch (error) {
       console.error("Error signing out: ", error);
+      toast({
+        variant: 'destructive',
+        title: 'Sign-out Failed',
+        description: 'An unexpected error occurred during sign-out.',
+      });
     }
   };
 
