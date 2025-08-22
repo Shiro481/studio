@@ -25,11 +25,10 @@ import type { VerifyAttendanceRecordOutput } from '@/ai/flows/verify-attendance-
 
 interface AttendanceScannerProps {
   onScanSuccess: (record: VerifyAttendanceRecordOutput) => void;
+  subjects: string[];
 }
 
-const subjects = ['Mathematics', 'Science', 'History', 'English', 'Art'];
-
-export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess }) => {
+export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -117,7 +116,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess })
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={handleScan} disabled={isLoading} className="w-full">
+        <Button onClick={handleScan} disabled={isLoading || subjects.length === 0} className="w-full">
           {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
