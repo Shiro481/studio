@@ -2,13 +2,13 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  projectId: "swiftattend-7wu6p",
-  appId: "1:936098307938:web:0f60a8ad237085fc1f163b",
-  storageBucket: "swiftattend-7wu6p.firebasestorage.app",
-  apiKey: "AIzaSyBwL5cb7c_L41aiV3m3UY7ScbSRXDBae_I",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: "swiftattend-7wu6p.firebaseapp.com",
+  projectId: "swiftattend-7wu6p",
+  storageBucket: "swiftattend-7wu6p.firebasestorage.app",
   messagingSenderId: "936098307938",
-  measurementId: ""
+  appId: "1:936098307938:web:0f60a8ad237085fc1f163b",
+  measurementId: "G-XXXXXXXXXX"
 };
 
 // Initialize Firebase
