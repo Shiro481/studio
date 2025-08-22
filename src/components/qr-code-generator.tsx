@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { User, QrCode, Download, Trash2, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,11 @@ export const QrCodeGenerator: FC = () => {
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const generateQrCode = () => {
     if (!studentName.trim()) {
@@ -132,7 +137,7 @@ export const QrCodeGenerator: FC = () => {
           </div>
         )}
 
-        {storedCodes.length > 0 && (
+        {isClient && storedCodes.length > 0 && (
           <div className="space-y-3 pt-4 border-t">
             <h4 className="text-sm font-medium text-muted-foreground">Saved QR Codes</h4>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
@@ -176,7 +181,7 @@ export const QrCodeGenerator: FC = () => {
             </div>
           </div>
         )}
-         {storedCodes.length === 0 && !generatedCode && (
+         {isClient && storedCodes.length === 0 && !generatedCode && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.
