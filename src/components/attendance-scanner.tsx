@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type FC } from 'react';
-import { QrCode, Loader2, CheckCircle, XCircle, CameraOff } from 'lucide-react';
+import { QrCode, Loader2, CheckCircle, XCircle, CameraOff, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -23,6 +23,9 @@ import { verifyAttendanceRecord } from '@/ai/flows/verify-attendance-record';
 import type { VerifyAttendanceRecordOutput } from '@/ai/flows/verify-attendance-record';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 interface AttendanceScannerProps {
   onScanSuccess: (record: VerifyAttendanceRecordOutput) => void;
@@ -34,6 +37,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useLocalStorage('isLoggedIn', false);
+
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -126,26 +131,30 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       }
     }
     animationFrameRef.current = requestAnimationFrame(tick);
-  }, [handleScan]);
+  }, [handleScan, selectedSubject]);
 
   const startScanning = useCallback(async () => {
-    if (!streamRef.current) {
-      console.error("Camera stream not available.");
-      toast({
-        variant: 'destructive',
-        title: 'Camera Error',
-        description: 'Unable to access the camera stream.',
-      });
-      return;
+    if (isScanning) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        streamRef.current = stream;
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(e => console.error("Video play failed:", e));
+        }
+        setIsScanning(true);
+        animationFrameRef.current = requestAnimationFrame(tick);
+    } catch (err) {
+        console.error("Error starting camera: ", err);
+        setHasCameraPermission(false);
+        setIsScanning(false);
+        toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings.',
+        });
     }
-      
-    if (videoRef.current) {
-        videoRef.current.srcObject = streamRef.current;
-        videoRef.current.play().catch(e => console.error("Video play failed:", e));
-    }
-    setIsScanning(true);
-    animationFrameRef.current = requestAnimationFrame(tick);
-  }, [tick, toast]);
+  }, [isScanning, tick, toast]);
   
   const toggleScan = async () => {
     if (!selectedSubject) {
@@ -165,42 +174,39 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   };
   
   useEffect(() => {
-    const getCameraPermission = async () => {
+    const checkCameraPermission = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        streamRef.current = stream;
-        setHasCameraPermission(true);
-        // We have permission, but don't start scanning until the user clicks the button.
-        // We also don't want to hold the camera open, so we stop the tracks immediately.
-        // The user will grant permission, and we'll re-acquire the stream on 'startScanning'
-        stream.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-        
-        // Re-acquire the stream for the button click
-        const freshStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        streamRef.current = freshStream;
-
-
+        // A more robust way to check for permission state on some browsers
+        if (navigator.permissions && navigator.permissions.query) {
+          const permissionStatus = await navigator.permissions.query({ name: 'camera' as any });
+          if (permissionStatus.state === 'granted') {
+            setHasCameraPermission(true);
+          } else if (permissionStatus.state === 'denied') {
+            setHasCameraPermission(false);
+          } else {
+             setHasCameraPermission(null); // Prompt needed
+          }
+          permissionStatus.onchange = () => {
+            setHasCameraPermission(permissionStatus.state === 'granted');
+          };
+        } else {
+            // Fallback for browsers that don't support permissions.query
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setHasCameraPermission(true);
+            stream.getTracks().forEach(track => track.stop()); // Stop stream immediately
+        }
       } catch (err) {
-        console.error("Error accessing camera: ", err);
+        // This will catch if permissions were never granted or are denied.
         setHasCameraPermission(false);
-        setIsScanning(false);
-        toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-        });
       }
     };
-    if(hasCameraPermission === null) {
-        getCameraPermission();
-    }
+    
+    checkCameraPermission();
     
     return () => {
-      // Ensure camera is stopped when component unmounts
       stopCamera();
     };
-  }, [stopCamera, toast, hasCameraPermission]);
+  }, [stopCamera]);
   
   return (
     <Card>
@@ -226,6 +232,28 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             </SelectContent>
           </Select>
         </div>
+
+        <div className="flex items-center space-x-4 rounded-md border p-4">
+          <Avatar>
+            <AvatarImage src={isLoggedIn ? "https://placehold.co/40x40.png" : undefined} data-ai-hint="user avatar" />
+            <AvatarFallback>{isLoggedIn ? 'U' : 'G'}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium leading-none">
+              {isLoggedIn ? 'User' : 'Guest'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {isLoggedIn ? 'Recording as logged in user.' : 'Recording as anonymous guest.'}
+            </p>
+          </div>
+          <Switch
+            id="login-switch"
+            checked={isLoggedIn}
+            onCheckedChange={setIsLoggedIn}
+            aria-label="Login status"
+          />
+        </div>
+
 
         <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />

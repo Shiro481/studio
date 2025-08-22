@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { AttendanceScanner } from '@/components/attendance-scanner';
 import { AttendanceList } from '@/components/attendance-list';
 import { SubjectManager } from '@/components/subject-manager';
-import { UserStatus } from '@/components/user-status';
 import type { AttendanceRecord } from '@/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { SwiftAttendLogo } from '@/components/icons';
@@ -14,7 +13,7 @@ export default function Home() {
   const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const [sortedRecords, setSortedRecords] = useState<AttendanceRecord[]>([]);
   const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Mathematics', 'Science', 'History', 'English', 'Art']);
-  const [isLoggedIn] = useLocalStorage('isLoggedIn', false);
+  const [isLoggedIn, setIsLoggedIn] = useLocalStorage('isLoggedIn', false);
 
   useEffect(() => {
     const sorted = [...records].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -49,7 +48,6 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <UserStatus />
         </div>
       </header>
       <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8">
