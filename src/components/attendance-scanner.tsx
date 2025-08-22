@@ -49,6 +49,9 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       stream.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
   }, []);
 
   const handleScan = useCallback((studentName: string) => {
@@ -88,7 +91,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    // Don't reset isProcessing immediately, let the state change handle UI
+    setTimeout(() => setIsProcessing(false), 500); 
   }, [onScanSuccess, scanMode, selectedSubject, toast]);
 
 
@@ -121,7 +124,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, [handleScan]);
 
   useEffect(() => {
-    const startCamera = async () => {
+    const getCameraPermission = async () => {
+      if (isScanning) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           setHasCameraPermission(true);
@@ -143,24 +147,16 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             description: 'Please enable camera permissions in your browser settings to use this app.',
           });
         }
-      }
-    
-    if(isScanning){
-        startCamera();
-    } else {
+      } else {
         stopCamera();
-        setIsProcessing(false);
-        if(animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
+      }
     }
+    
+    getCameraPermission();
   
     // Cleanup function to stop the camera and animation frame on unmount
     return () => {
       stopCamera();
-      if(animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
     };
   }, [isScanning, stopCamera, toast, tick]);
 
@@ -224,7 +220,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
-            {isScanning && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
+            {isScanning && hasCameraPermission && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
              {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />
