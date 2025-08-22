@@ -31,7 +31,7 @@ interface AttendanceScannerProps {
 
 export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [scanMode, setScanMode] = useState<'in' | 'out'>('in');
@@ -60,7 +60,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, []);
   
   const handleScan = useCallback((studentName: string) => {
-    setIsLoading(true);
+    setIsProcessing(true);
     stopCamera();
 
     if (studentName) {
@@ -96,7 +96,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    setIsLoading(false);
+    setIsProcessing(false);
   }, [onScanSuccess, scanMode, selectedSubject, stopCamera, toast]);
 
 
@@ -129,26 +129,30 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, [handleScan, isScanning]);
 
   const startScanning = useCallback(async () => {
-    if (isScanning) return;
+    if (!videoRef.current) return;
+    
+    setIsScanning(true);
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        streamRef.current = stream;
-        if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(e => console.error("Video play failed:", e));
-        }
-        setIsScanning(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      setHasCameraPermission(true);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      animationFrameRef.current = requestAnimationFrame(tick);
     } catch (err) {
-        console.error("Error starting camera: ", err);
-        setHasCameraPermission(false);
-        setIsScanning(false);
-        toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-        });
+      console.error("Error starting camera: ", err);
+      setHasCameraPermission(false);
+      setIsScanning(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser settings.',
+      });
     }
-  }, [isScanning, toast]);
+  }, [toast, tick]);
 
   const toggleScan = async () => {
     if (!selectedSubject) {
@@ -168,35 +172,24 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   };
 
   useEffect(() => {
-    if (isScanning) {
-        animationFrameRef.current = requestAnimationFrame(tick);
-    } else {
-        if(animationFrameRef.current){
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = undefined;
+    // This effect will run once, to check initial camera permission status
+    const checkInitialPermission = async () => {
+        if (typeof navigator.permissions?.query === 'function') {
+            try {
+                const permission = await navigator.permissions.query({ name: 'camera' as any });
+                setHasCameraPermission(permission.state === 'granted');
+            } catch (error) {
+                console.error("Error checking camera permissions", error);
+                setHasCameraPermission(false);
+            }
+        } else {
+             // Fallback for browsers that don't support permissions.query
+            setHasCameraPermission(null);
         }
-    }
-    return () => {
-        if(animationFrameRef.current){
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-    }
-  }, [isScanning, tick]);
-
-  useEffect(() => {
-    const checkCameraPermission = async () => {
-      try {
-        const permissionStatus = await navigator.permissions.query({ name: 'camera' as any });
-        setHasCameraPermission(permissionStatus.state === 'granted');
-        permissionStatus.onchange = () => {
-          setHasCameraPermission(permissionStatus.state === 'granted');
-        };
-      } catch (err) {
-        console.error('Could not query camera permissions:', err);
-        setHasCameraPermission(false);
-      }
     };
-    checkCameraPermission();
+    checkInitialPermission();
+
+    // Cleanup camera on component unmount
     return () => stopCamera();
   }, [stopCamera]);
 
@@ -211,7 +204,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="subject-select">Subject</Label>
-          <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={isScanning || isLoading}>
+          <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={isScanning || isProcessing}>
             <SelectTrigger id="subject-select">
               <SelectValue placeholder="Select a subject" />
             </SelectTrigger>
@@ -247,6 +240,11 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             {isScanning && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
+             {!isScanning && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <CameraOff className="h-16 w-16 text-white/50" />
+                </div>
+            )}
         </div>
         
         {hasCameraPermission === false && (
@@ -259,13 +257,13 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             </Alert>
         )}
 
-        <Button onClick={toggleScan} disabled={isLoading || subjects.length === 0 || hasCameraPermission !== true} className="w-full">
-          {isLoading ? (
+        <Button onClick={toggleScan} disabled={isProcessing || subjects.length === 0} className="w-full">
+          {isProcessing ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <QrCode className="mr-2 h-4 w-4" />
           )}
-          {isLoading ? 'Processing...' : (isScanning ? 'Stop Scanning' : 'Scan with Camera')}
+          {isProcessing ? 'Processing...' : (isScanning ? 'Stop Scanning' : 'Scan with Camera')}
         </Button>
       </CardContent>
     </Card>
