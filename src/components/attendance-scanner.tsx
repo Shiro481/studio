@@ -126,58 +126,69 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, [handleScan, isScanning]);
 
   useEffect(() => {
-    const startCamera = async () => {
-      setCameraError(null);
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          // Use a new function for the event listener to avoid stale closure issues
-          const onCanPlay = () => {
-             videoRef.current?.play().catch(err => console.error("Video play error:", err));
-             animationFrameRef.current = requestAnimationFrame(tick);
-          };
-          videoRef.current.addEventListener('loadedmetadata', onCanPlay);
-          // Cleanup this specific event listener
-          return () => {
-            if (videoRef.current) {
-                videoRef.current.removeEventListener('loadedmetadata', onCanPlay);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        if (error instanceof Error) {
-            if (error.name === 'NotAllowedError') {
-                setCameraError('Camera access was denied. Please enable camera permissions in your browser settings.');
-            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
-            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
-            } else {
-                setCameraError('An unexpected error occurred while accessing the camera.');
-            }
-        } else {
-            setCameraError('An unknown error occurred.');
-        }
-        setHasCameraPermission(false);
-        setIsScanning(false);
-      }
-    };
-
     if (isScanning) {
+      const startCamera = async () => {
+        setCameraError(null);
+        setHasCameraPermission(null);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          setHasCameraPermission(true);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            
+            const onCanPlay = () => {
+              videoRef.current?.play().catch(err => {
+                console.error("Video play error:", err);
+                setCameraError("Failed to play video stream.");
+              });
+              animationFrameRef.current = requestAnimationFrame(tick);
+            };
+
+            videoRef.current.addEventListener('loadedmetadata', onCanPlay);
+
+            return () => { // Return a cleanup function
+              if (videoRef.current) {
+                  videoRef.current.removeEventListener('loadedmetadata', onCanPlay);
+              }
+              stopCamera();
+            };
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          if (error instanceof Error) {
+              if (error.name === 'NotAllowedError') {
+                  setCameraError('Camera access was denied. Please enable camera permissions in your browser settings.');
+              } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                  setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
+              } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                  setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
+              } else {
+                  setCameraError('An unexpected error occurred while accessing the camera.');
+              }
+          } else {
+              setCameraError('An unknown error occurred.');
+          }
+          setHasCameraPermission(false);
+          setIsScanning(false);
+        }
+      };
+
       const cleanupPromise = startCamera();
+
       return () => {
-        stopCamera();
-        cleanupPromise.then(cleanup => cleanup && cleanup());
+        cleanupPromise.then(cleanup => {
+          if (cleanup) {
+            cleanup();
+          } else {
+            stopCamera();
+          }
+        });
       };
     } else {
       stopCamera();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScanning]);
+  }, [isScanning, stopCamera, tick]);
 
 
   const toggleScan = () => {
@@ -239,7 +250,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             {isScanning && hasCameraPermission && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
-             {!isScanning && hasCameraPermission === true && (
+             {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />
                 </div>
