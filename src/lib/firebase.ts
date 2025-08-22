@@ -8,6 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBwL5cb7c_L41aiV3m3UY7ScbSRXDBae_I",
   authDomain: "swiftattend-7wu6p.firebaseapp.com",
   messagingSenderId: "936098307938",
+  measurementId: ""
 };
 
 // Initialize Firebase
