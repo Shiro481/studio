@@ -40,15 +40,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number>();
 
   const { toast } = useToast();
-
+  
   const stopCamera = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = undefined;
-    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -56,11 +51,11 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setIsScanning(false);
   }, []);
-  
+
   const handleScan = useCallback((studentName: string) => {
     setIsProcessing(true);
+    setIsScanning(false);
     stopCamera();
 
     if (studentName) {
@@ -117,44 +112,61 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           });
           if (code?.data) {
             handleScan(code.data);
+            return; // Stop ticking once a code is found
           }
         } catch (e) {
             // Ignore getImageData errors that can happen when the canvas is not ready
         }
       }
     }
+    
+    // Only continue ticking if we are still in scanning mode
     if(isScanning){
-        animationFrameRef.current = requestAnimationFrame(tick);
+        requestAnimationFrame(tick);
     }
   }, [handleScan, isScanning]);
 
-  const startScanning = useCallback(async () => {
-    if (!videoRef.current) return;
-    
-    setIsScanning(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      setHasCameraPermission(true);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+  useEffect(() => {
+    const enableCamera = async () => {
+      if (isScanning) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          streamRef.current = stream;
+          setHasCameraPermission(true);
+  
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play().catch(err => console.error("Video play error:", err));
+              requestAnimationFrame(tick);
+            };
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          setIsScanning(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use this app.',
+          });
+        }
+      } else {
+        stopCamera();
       }
-      animationFrameRef.current = requestAnimationFrame(tick);
-    } catch (err) {
-      console.error("Error starting camera: ", err);
-      setHasCameraPermission(false);
-      setIsScanning(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
-    }
-  }, [toast, tick]);
+    };
+  
+    enableCamera();
+  
+    // Cleanup function to stop the camera when the component unmounts or isScanning becomes false
+    return () => {
+      stopCamera();
+    };
+  }, [isScanning, stopCamera, toast, tick]);
 
-  const toggleScan = async () => {
+
+  const toggleScan = () => {
     if (!selectedSubject) {
       toast({
         title: 'Subject Required',
@@ -163,35 +175,9 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
       return;
     }
-
-    if (isScanning) {
-      stopCamera();
-    } else {
-      await startScanning();
-    }
+    setIsScanning(prev => !prev);
   };
-
-  useEffect(() => {
-    // This effect will run once, to check initial camera permission status
-    const checkInitialPermission = async () => {
-        if (typeof navigator.permissions?.query === 'function') {
-            try {
-                const permission = await navigator.permissions.query({ name: 'camera' as any });
-                setHasCameraPermission(permission.state === 'granted');
-            } catch (error) {
-                console.error("Error checking camera permissions", error);
-                setHasCameraPermission(false);
-            }
-        } else {
-             // Fallback for browsers that don't support permissions.query
-            setHasCameraPermission(null);
-        }
-    };
-    checkInitialPermission();
-
-    // Cleanup camera on component unmount
-    return () => stopCamera();
-  }, [stopCamera]);
+  
 
   return (
     <Card>
