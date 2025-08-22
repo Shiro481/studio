@@ -6,7 +6,6 @@ import { QrCodeGenerator } from '@/components/qr-code-generator';
 import { SubjectManager } from '@/components/subject-manager';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { SwiftAttendLogo } from '@/components/icons';
-import { UserNav } from '@/components/user-nav';
 import { Scan, History } from 'lucide-react';
 
 export default function GeneratorPage() {
@@ -29,7 +28,6 @@ export default function GeneratorPage() {
                 <History className="mr-2 h-4 w-4" />
                 View History
             </Button>
-            <UserNav />
         </div>
       </header>
       <main className="flex-grow p-4 md:p-8">
