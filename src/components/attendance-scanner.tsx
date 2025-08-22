@@ -19,8 +19,6 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { verifyAttendanceRecord } from '@/ai/flows/verify-attendance-record';
-import type { VerifyAttendanceRecordOutput } from '@/ai/flows/verify-attendance-record';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
 import { Switch } from '@/components/ui/switch';
@@ -60,22 +58,24 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
     setIsScanning(false);
   }, []);
-
-  const handleScan = useCallback(async (qrCodeData: string) => {
+  
+  const handleScan = useCallback((qrCodeData: string) => {
     setIsLoading(true);
     stopCamera();
 
     try {
-      const result = await verifyAttendanceRecord({
-        qrCodeData,
-        subject: selectedSubject,
-      });
+      const parsedData = JSON.parse(qrCodeData);
+      if (parsedData.studentId && parsedData.name) {
+         const newRecord = {
+          studentName: parsedData.name,
+          subject: selectedSubject,
+          timestamp: new Date().toISOString(),
+          isValid: true,
+          status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
+        };
 
-      if (result.isValid) {
-        onScanSuccess({
-            ...result,
-            status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
-        });
+        onScanSuccess(newRecord);
+
         toast({
           title: (
             <div className="flex items-center gap-2">
@@ -83,31 +83,28 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
               <span>Success</span>
             </div>
           ),
-          description: `Attendance for ${result.studentName} (${scanMode === 'in' ? 'Logged In' : 'Logged Out'}) recorded.`,
+          description: `Attendance for ${newRecord.studentName} (${newRecord.status}) recorded.`,
         });
       } else {
-        toast({
-          title: (
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5" />
-              <span>Scan Failed</span>
-            </div>
-          ),
-          description: 'The QR code appears to be invalid.',
-          variant: 'destructive',
-        });
+        throw new Error("Invalid QR code data structure");
       }
     } catch (error) {
-      console.error('Failed to verify attendance:', error);
+      console.error('Failed to process QR code:', error);
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred during verification.',
+        title: (
+          <div className="flex items-center gap-2">
+            <XCircle className="h-5 w-5" />
+            <span>Scan Failed</span>
+          </div>
+        ),
+        description: 'The QR code appears to be invalid or corrupted.',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   }, [onScanSuccess, scanMode, selectedSubject, stopCamera, toast]);
+
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
@@ -184,6 +181,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           setHasCameraPermission(permissionStatus.state === 'granted');
         };
       } catch (err) {
+        console.error('Could not query camera permissions:', err);
         setHasCameraPermission(false);
       }
     };
@@ -256,7 +254,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           ) : (
             <QrCode className="mr-2 h-4 w-4" />
           )}
-          {isLoading ? 'Verifying...' : (isScanning ? 'Stop Scanning' : 'Scan with Camera')}
+          {isLoading ? 'Processing...' : (isScanning ? 'Stop Scanning' : 'Scan with Camera')}
         </Button>
       </CardContent>
     </Card>
