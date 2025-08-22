@@ -45,6 +45,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const stopCamera = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -128,25 +129,22 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, [handleScan]);
 
   const startScanning = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setIsScanning(true);
-      animationFrameRef.current = requestAnimationFrame(tick);
-    } catch (err) {
-      console.error("Error accessing camera: ", err);
-      setHasCameraPermission(false);
-      setIsScanning(false);
+    if (!streamRef.current) {
+      console.error("Camera stream not available.");
       toast({
         variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
+        title: 'Camera Error',
+        description: 'Unable to access the camera stream.',
       });
+      return;
     }
+      
+    if (videoRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(e => console.error("Video play failed:", e));
+    }
+    setIsScanning(true);
+    animationFrameRef.current = requestAnimationFrame(tick);
   }, [tick, toast]);
   
   const toggleScan = async () => {
@@ -167,16 +165,42 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   };
   
   useEffect(() => {
-    // This will ensure the video element is ready when we need it
-    if (videoRef.current) {
-      videoRef.current.oncanplay = () => {
-        // Video is ready to play
-      };
-    }
+    const getCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        streamRef.current = stream;
+        setHasCameraPermission(true);
+        // We have permission, but don't start scanning until the user clicks the button.
+        // We also don't want to hold the camera open, so we stop the tracks immediately.
+        // The user will grant permission, and we'll re-acquire the stream on 'startScanning'
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        
+        // Re-acquire the stream for the button click
+        const freshStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        streamRef.current = freshStream;
 
-    // Cleanup function
-    return () => stopCamera();
-  }, [stopCamera]);
+
+      } catch (err) {
+        console.error("Error accessing camera: ", err);
+        setHasCameraPermission(false);
+        setIsScanning(false);
+        toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings.',
+        });
+      }
+    };
+    if(hasCameraPermission === null) {
+        getCameraPermission();
+    }
+    
+    return () => {
+      // Ensure camera is stopped when component unmounts
+      stopCamera();
+    };
+  }, [stopCamera, toast, hasCameraPermission]);
   
   return (
     <Card>
@@ -219,7 +243,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             </Alert>
         )}
 
-        <Button onClick={toggleScan} disabled={isLoading || subjects.length === 0} className="w-full">
+        <Button onClick={toggleScan} disabled={isLoading || subjects.length === 0 || hasCameraPermission !== true} className="w-full">
           {isLoading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
