@@ -17,6 +17,10 @@ export default function HistoryPage() {
     setRecords([]);
   };
 
+  const handleDeleteRecord = (id: string) => {
+    setRecords(prev => prev.filter(record => record.id !== id));
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between p-4 border-b">
@@ -37,7 +41,7 @@ export default function HistoryPage() {
       </header>
       <main className="flex-grow p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <AttendanceList records={records} onClear={handleClearHistory} />
+          <AttendanceList records={records} onClear={handleClearHistory} onDelete={handleDeleteRecord} />
         </div>
       </main>
     </div>

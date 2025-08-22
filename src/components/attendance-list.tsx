@@ -36,9 +36,10 @@ import { cn } from '@/lib/utils';
 interface AttendanceListProps {
   records: AttendanceRecord[];
   onClear: () => void;
+  onDelete: (id: string) => void;
 }
 
-export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) => {
+export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete }) => {
   const exportToCSV = () => {
     const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
     const csvRows = [
@@ -121,7 +122,8 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
                 <TableHead>Subject</TableHead>
                 <TableHead>Timestamp</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">QR Status</TableHead>
+                <TableHead>QR Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -141,7 +143,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
                          <span>{record.status}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Badge
                         variant={record.isValid ? 'default' : 'destructive'}
                         className={cn(record.isValid && 'bg-accent text-accent-foreground')}
@@ -149,12 +151,38 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
                         {record.isValid ? 'Valid' : 'Invalid'}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                       <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" aria-label="Delete Record">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the record for {record.studentName}. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => onDelete(record.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="h-24 text-center text-muted-foreground"
                   >
                     <div className="flex flex-col items-center gap-2">
