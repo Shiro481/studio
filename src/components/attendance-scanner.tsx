@@ -43,15 +43,15 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const { toast } = useToast();
 
   const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
     }
     setIsScanning(false);
   }, []);
@@ -102,7 +102,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   };
 
   const tick = useCallback(() => {
-    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
+    if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -111,63 +111,43 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         canvas.height = video.videoHeight;
         canvas.width = video.videoWidth;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'dontInvert',
-        });
-
-        if (code && code.data) {
-          handleScan(code.data);
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+          if (code?.data) {
+            handleScan(code.data);
+          }
+        } catch (e) {
+            // Ignore getImageData errors that can happen when the canvas is not ready
         }
       }
     }
+    animationFrameRef.current = requestAnimationFrame(tick);
   }, [handleScan]);
 
-
-  const scanLoop = useCallback(() => {
-    if (!isScanning) return;
-    tick();
-    animationFrameRef.current = requestAnimationFrame(scanLoop);
-  }, [isScanning, tick]);
-
-  const startCamera = async () => {
+  const startScanning = useCallback(async () => {
     try {
-        if (streamRef.current) stopCamera();
-
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        streamRef.current = stream;
-        setHasCameraPermission(true);
-        if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(e => console.error("Video play failed", e));
-        }
-        setIsScanning(true);
-    } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        setIsScanning(false);
-        toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-        });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      setHasCameraPermission(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsScanning(true);
+      animationFrameRef.current = requestAnimationFrame(tick);
+    } catch (err) {
+      console.error("Error accessing camera: ", err);
+      setHasCameraPermission(false);
+      setIsScanning(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser settings.',
+      });
     }
-  };
-
-  useEffect(() => {
-    if (isScanning) {
-        animationFrameRef.current = requestAnimationFrame(scanLoop);
-    } else {
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-    }
-    return () => {
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-        }
-    };
-  }, [isScanning, scanLoop]);
+  }, [tick, toast]);
   
   const toggleScan = async () => {
     if (!selectedSubject) {
@@ -182,15 +162,22 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     if (isScanning) {
       stopCamera();
     } else {
-      await startCamera();
+      await startScanning();
     }
   };
   
   useEffect(() => {
+    // This will ensure the video element is ready when we need it
+    if (videoRef.current) {
+      videoRef.current.oncanplay = () => {
+        // Video is ready to play
+      };
+    }
+
+    // Cleanup function
     return () => stopCamera();
   }, [stopCamera]);
-
-
+  
   return (
     <Card>
       <CardHeader>
