@@ -52,19 +52,14 @@ export const QrCodeGenerator: FC = () => {
       toast({ title: "Error", description: "Please enter a student name.", variant: "destructive" });
       return;
     }
-    const studentId = `STU-${Math.floor(1000 + Math.random() * 9000)}`;
-    const qrData = JSON.stringify({
-        studentId: studentId,
-        name: studentName.trim(),
-        timestamp: new Date().toISOString(),
-    });
-    const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
+    const name = studentName.trim();
+    const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(name)}&size=200x200&format=png`;
 
     const newCode: StoredQrCode = {
       id: crypto.randomUUID(),
-      name: studentName.trim(),
+      name: name,
       url: url,
-      data: qrData,
+      data: name,
     };
     
     setGeneratedCode(newCode);

@@ -59,37 +59,32 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     setIsScanning(false);
   }, []);
   
-  const handleScan = useCallback((qrCodeData: string) => {
+  const handleScan = useCallback((studentName: string) => {
     setIsLoading(true);
     stopCamera();
 
-    try {
-      const parsedData = JSON.parse(qrCodeData);
-      if (parsedData.studentId && parsedData.name) {
-         const newRecord = {
-          studentName: parsedData.name,
-          subject: selectedSubject,
-          timestamp: new Date().toISOString(),
-          isValid: true,
-          status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
-        };
+    if (studentName) {
+        const newRecord = {
+        studentName: studentName,
+        subject: selectedSubject,
+        timestamp: new Date().toISOString(),
+        isValid: true,
+        status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
+      };
 
-        onScanSuccess(newRecord);
+      onScanSuccess(newRecord);
 
-        toast({
-          title: (
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span>Success</span>
-            </div>
-          ),
-          description: `Attendance for ${newRecord.studentName} (${newRecord.status}) recorded.`,
-        });
-      } else {
-        throw new Error("Invalid QR code data structure");
-      }
-    } catch (error) {
-      console.error('Failed to process QR code:', error);
+      toast({
+        title: (
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span>Success</span>
+          </div>
+        ),
+        description: `Attendance for ${newRecord.studentName} (${newRecord.status}) recorded.`,
+      });
+    } else {
+      console.error('Failed to process QR code: No student name found');
       toast({
         title: (
           <div className="flex items-center gap-2">
@@ -100,9 +95,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         description: 'The QR code appears to be invalid or corrupted.',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, [onScanSuccess, scanMode, selectedSubject, stopCamera, toast]);
 
 
@@ -129,8 +123,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         }
       }
     }
-    animationFrameRef.current = requestAnimationFrame(tick);
-  }, [handleScan]);
+    if(isScanning){
+        animationFrameRef.current = requestAnimationFrame(tick);
+    }
+  }, [handleScan, isScanning]);
 
   const startScanning = useCallback(async () => {
     if (isScanning) return;
@@ -142,7 +138,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             videoRef.current.play().catch(e => console.error("Video play failed:", e));
         }
         setIsScanning(true);
-        animationFrameRef.current = requestAnimationFrame(tick);
     } catch (err) {
         console.error("Error starting camera: ", err);
         setHasCameraPermission(false);
@@ -153,7 +148,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             description: 'Please enable camera permissions in your browser settings.',
         });
     }
-  }, [isScanning, tick, toast]);
+  }, [isScanning, toast]);
 
   const toggleScan = async () => {
     if (!selectedSubject) {
@@ -171,6 +166,22 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       await startScanning();
     }
   };
+
+  useEffect(() => {
+    if (isScanning) {
+        animationFrameRef.current = requestAnimationFrame(tick);
+    } else {
+        if(animationFrameRef.current){
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = undefined;
+        }
+    }
+    return () => {
+        if(animationFrameRef.current){
+            cancelAnimationFrame(animationFrameRef.current);
+        }
+    }
+  }, [isScanning, tick]);
 
   useEffect(() => {
     const checkCameraPermission = async () => {
