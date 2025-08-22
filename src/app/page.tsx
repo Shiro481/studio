@@ -13,18 +13,16 @@ export default function Home() {
   const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const [sortedRecords, setSortedRecords] = useState<AttendanceRecord[]>([]);
   const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Mathematics', 'Science', 'History', 'English', 'Art']);
-  const [isLoggedIn, setIsLoggedIn] = useLocalStorage('isLoggedIn', false);
 
   useEffect(() => {
     const sorted = [...records].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setSortedRecords(sorted);
   }, [records]);
 
-  const handleAddRecord = (newRecord: Omit<AttendanceRecord, 'id' | 'recordedBy'>) => {
+  const handleAddRecord = (newRecord: Omit<AttendanceRecord, 'id'>) => {
     const recordWithId: AttendanceRecord = {
       ...newRecord,
       id: crypto.randomUUID(),
-      recordedBy: isLoggedIn ? 'User' : 'Guest',
     };
     setRecords(prevRecords => [...prevRecords, recordWithId]);
   };

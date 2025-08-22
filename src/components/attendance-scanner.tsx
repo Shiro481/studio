@@ -23,12 +23,11 @@ import { verifyAttendanceRecord } from '@/ai/flows/verify-attendance-record';
 import type { VerifyAttendanceRecordOutput } from '@/ai/flows/verify-attendance-record';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import type { AttendanceRecord } from '@/types';
 
 interface AttendanceScannerProps {
-  onScanSuccess: (record: VerifyAttendanceRecordOutput) => void;
+  onScanSuccess: (record: Omit<AttendanceRecord, 'id'>) => void;
   subjects: string[];
 }
 
@@ -37,7 +36,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useLocalStorage('isLoggedIn', false);
+  const [scanMode, setScanMode] = useState<'in' | 'out'>('in');
 
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -62,7 +61,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     setIsScanning(false);
   }, []);
 
-  const handleScan = async (qrCodeData: string) => {
+  const handleScan = useCallback(async (qrCodeData: string) => {
     setIsLoading(true);
     stopCamera();
 
@@ -73,7 +72,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
 
       if (result.isValid) {
-        onScanSuccess(result);
+        onScanSuccess({
+            ...result,
+            status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
+        });
         toast({
           title: (
             <div className="flex items-center gap-2">
@@ -81,7 +83,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
               <span>Success</span>
             </div>
           ),
-          description: `Attendance for ${result.studentName} in ${result.subject} recorded.`,
+          description: `Attendance for ${result.studentName} (${scanMode === 'in' ? 'Logged In' : 'Logged Out'}) recorded.`,
         });
       } else {
         toast({
@@ -105,7 +107,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onScanSuccess, scanMode, selectedSubject, stopCamera, toast]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
@@ -131,7 +133,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       }
     }
     animationFrameRef.current = requestAnimationFrame(tick);
-  }, [handleScan, selectedSubject]);
+  }, [handleScan]);
 
   const startScanning = useCallback(async () => {
     if (isScanning) return;
@@ -155,7 +157,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         });
     }
   }, [isScanning, tick, toast]);
-  
+
   const toggleScan = async () => {
     if (!selectedSubject) {
       toast({
@@ -172,48 +174,29 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       await startScanning();
     }
   };
-  
+
   useEffect(() => {
     const checkCameraPermission = async () => {
       try {
-        // A more robust way to check for permission state on some browsers
-        if (navigator.permissions && navigator.permissions.query) {
-          const permissionStatus = await navigator.permissions.query({ name: 'camera' as any });
-          if (permissionStatus.state === 'granted') {
-            setHasCameraPermission(true);
-          } else if (permissionStatus.state === 'denied') {
-            setHasCameraPermission(false);
-          } else {
-             setHasCameraPermission(null); // Prompt needed
-          }
-          permissionStatus.onchange = () => {
-            setHasCameraPermission(permissionStatus.state === 'granted');
-          };
-        } else {
-            // Fallback for browsers that don't support permissions.query
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop()); // Stop stream immediately
-        }
+        const permissionStatus = await navigator.permissions.query({ name: 'camera' as any });
+        setHasCameraPermission(permissionStatus.state === 'granted');
+        permissionStatus.onchange = () => {
+          setHasCameraPermission(permissionStatus.state === 'granted');
+        };
       } catch (err) {
-        // This will catch if permissions were never granted or are denied.
         setHasCameraPermission(false);
       }
     };
-    
     checkCameraPermission();
-    
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
   }, [stopCamera]);
-  
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Scan Attendance</CardTitle>
         <CardDescription>
-          Select a subject and scan the student's QR code.
+          Select a subject, choose the status, and scan the QR code.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -234,24 +217,20 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         </div>
 
         <div className="flex items-center space-x-4 rounded-md border p-4">
-          <Avatar>
-            <AvatarImage src={isLoggedIn ? "https://placehold.co/40x40.png" : undefined} data-ai-hint="user avatar" />
-            <AvatarFallback>{isLoggedIn ? 'U' : 'G'}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {isLoggedIn ? 'User' : 'Guest'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {isLoggedIn ? 'Recording as logged in user.' : 'Recording as anonymous guest.'}
-            </p>
+          <div className="flex items-center space-x-2">
+            <LogOut className={`h-5 w-5 ${scanMode === 'out' ? 'text-primary' : 'text-muted-foreground'}`} />
+            <Label htmlFor="scan-mode-switch" className={scanMode === 'out' ? 'text-primary' : 'text-muted-foreground'}>Log Out</Label>
           </div>
           <Switch
-            id="login-switch"
-            checked={isLoggedIn}
-            onCheckedChange={setIsLoggedIn}
-            aria-label="Login status"
+            id="scan-mode-switch"
+            checked={scanMode === 'in'}
+            onCheckedChange={(checked) => setScanMode(checked ? 'in' : 'out')}
+            aria-label="Scan mode: Log In or Log Out"
           />
+           <div className="flex items-center space-x-2">
+            <LogIn className={`h-5 w-5 ${scanMode === 'in' ? 'text-primary' : 'text-muted-foreground'}`} />
+            <Label htmlFor="scan-mode-switch" className={scanMode === 'in' ? 'text-primary' : 'text-muted-foreground'}>Log In</Label>
+          </div>
         </div>
 
 

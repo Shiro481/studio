@@ -1,7 +1,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { Download, ListChecks, Trash2 } from 'lucide-react';
+import { Download, ListChecks, Trash2, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { AttendanceRecord } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface AttendanceListProps {
   records: AttendanceRecord[];
@@ -39,7 +40,7 @@ interface AttendanceListProps {
 
 export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) => {
   const exportToCSV = () => {
-    const headers = ['Student Name', 'Subject', 'Timestamp', 'Recorded By', 'Status'];
+    const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
     const csvRows = [
       headers.join(','),
       ...records.map(record =>
@@ -47,7 +48,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
           `"${record.studentName}"`,
           `"${record.subject}"`,
           `"${new Date(record.timestamp).toLocaleString()}"`,
-          `"${record.recordedBy}"`,
+          `"${record.status}"`,
           record.isValid ? 'Valid' : 'Invalid',
         ].join(',')
       ),
@@ -119,8 +120,8 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
                 <TableHead>Student Name</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Timestamp</TableHead>
-                <TableHead>Recorded By</TableHead>
-                <TableHead className="text-right">Status</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">QR Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -134,11 +135,16 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear }) =>
                     <TableCell>
                       {new Date(record.timestamp).toLocaleString()}
                     </TableCell>
-                    <TableCell>{record.recordedBy}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                         {record.status === 'Logged In' ? <LogIn className="h-4 w-4 text-green-500" /> : <LogOut className="h-4 w-4 text-red-500" />}
+                         <span>{record.status}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Badge
                         variant={record.isValid ? 'default' : 'destructive'}
-                        className={record.isValid ? 'bg-accent text-accent-foreground' : ''}
+                        className={cn(record.isValid && 'bg-accent text-accent-foreground')}
                       >
                         {record.isValid ? 'Valid' : 'Invalid'}
                       </Badge>

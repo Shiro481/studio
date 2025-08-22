@@ -4,5 +4,5 @@ export type AttendanceRecord = {
   timestamp: string;
   subject: string;
   isValid: boolean;
-  recordedBy: string;
+  status: 'Logged In' | 'Logged Out';
 };
