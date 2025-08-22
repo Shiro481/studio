@@ -39,23 +39,21 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number>();
 
   const { toast } = useToast();
   
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
   }, []);
 
   const handleScan = useCallback((studentName: string) => {
     setIsProcessing(true);
-    setIsScanning(false); // This will trigger the useEffect to stop the camera
+    setIsScanning(false);
     
     if (studentName) {
         const newRecord = {
@@ -90,12 +88,12 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    setIsProcessing(false);
+    // Don't reset isProcessing immediately, let the state change handle UI
   }, [onScanSuccess, scanMode, selectedSubject, toast]);
 
 
   const tick = useCallback(() => {
-    if (isScanning && videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
+    if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -119,26 +117,20 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         }
       }
     }
-    // Only continue ticking if we are still in scanning mode
-    if(isScanning){
-        requestAnimationFrame(tick);
-    }
-  }, [handleScan, isScanning]);
+    animationFrameRef.current = requestAnimationFrame(tick);
+  }, [handleScan]);
 
   useEffect(() => {
-    let animationFrameId: number;
-
     const startCamera = async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          streamRef.current = stream;
           setHasCameraPermission(true);
   
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
             videoRef.current.onloadedmetadata = () => {
               videoRef.current?.play().catch(err => console.error("Video play error:", err));
-              animationFrameId = requestAnimationFrame(tick);
+              animationFrameRef.current = requestAnimationFrame(tick);
             };
           }
         } catch (error) {
@@ -157,13 +149,17 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         startCamera();
     } else {
         stopCamera();
+        setIsProcessing(false);
+        if(animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
     }
   
-    // Cleanup function to stop the camera and animation frame
+    // Cleanup function to stop the camera and animation frame on unmount
     return () => {
       stopCamera();
-      if(animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      if(animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [isScanning, stopCamera, toast, tick]);
