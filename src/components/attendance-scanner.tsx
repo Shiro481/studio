@@ -38,6 +38,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number>();
 
   const { toast } = useToast();
 
@@ -46,33 +47,17 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-  }, []);
-
-  const startCamera = async () => {
-    try {
-      if (streamRef.current) {
-        stopCamera();
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.current = stream;
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
-  };
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    setIsScanning(false);
+  }, []);
 
   const handleScan = async (qrCodeData: string) => {
     setIsLoading(true);
-    setIsScanning(false);
     stopCamera();
 
     try {
@@ -131,32 +116,59 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           inversionAttempts: 'dontInvert',
         });
 
-        if (code) {
+        if (code && code.data) {
           handleScan(code.data);
         }
       }
     }
-  }, []);
+  }, [handleScan]);
+
+
+  const scanLoop = useCallback(() => {
+    if (!isScanning) return;
+    tick();
+    animationFrameRef.current = requestAnimationFrame(scanLoop);
+  }, [isScanning, tick]);
+
+  const startCamera = async () => {
+    try {
+        if (streamRef.current) stopCamera();
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        streamRef.current = stream;
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(e => console.error("Video play failed", e));
+        }
+        setIsScanning(true);
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        setIsScanning(false);
+        toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings.',
+        });
+    }
+  };
 
   useEffect(() => {
-    let animationFrameId: number;
-
-    const scanLoop = () => {
-      if (isScanning && !isLoading) {
-        tick();
-        animationFrameId = requestAnimationFrame(scanLoop);
-      }
-    };
-    
     if (isScanning) {
-      scanLoop();
+        animationFrameRef.current = requestAnimationFrame(scanLoop);
+    } else {
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
     }
-
     return () => {
-      cancelAnimationFrame(animationFrameId);
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
     };
-  }, [isScanning, isLoading, tick]);
-
+  }, [isScanning, scanLoop]);
+  
   const toggleScan = async () => {
     if (!selectedSubject) {
       toast({
@@ -167,20 +179,15 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       return;
     }
 
-    if (!isScanning) {
-      await startCamera();
-      setIsScanning(true);
-    } else {
+    if (isScanning) {
       stopCamera();
-      setIsScanning(false);
+    } else {
+      await startCamera();
     }
   };
   
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
   }, [stopCamera]);
 
 
@@ -209,13 +216,11 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           </Select>
         </div>
 
-        {isScanning && (
-            <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-                <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />
-            </div>
-        )}
+        <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            {isScanning && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
+        </div>
         
         {hasCameraPermission === false && (
             <Alert variant="destructive">
