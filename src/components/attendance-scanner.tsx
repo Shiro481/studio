@@ -55,9 +55,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
   const handleScan = useCallback((studentName: string) => {
     setIsProcessing(true);
-    setIsScanning(false);
-    stopCamera();
-
+    setIsScanning(false); // This will trigger the useEffect to stop the camera
+    
     if (studentName) {
         const newRecord = {
         studentName: studentName,
@@ -92,11 +91,11 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
     }
     setIsProcessing(false);
-  }, [onScanSuccess, scanMode, selectedSubject, stopCamera, toast]);
+  }, [onScanSuccess, scanMode, selectedSubject, toast]);
 
 
   const tick = useCallback(() => {
-    if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
+    if (isScanning && videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -110,6 +109,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           const code = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: 'dontInvert',
           });
+
           if (code?.data) {
             handleScan(code.data);
             return; // Stop ticking once a code is found
@@ -119,17 +119,16 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         }
       }
     }
-    
     // Only continue ticking if we are still in scanning mode
     if(isScanning){
         requestAnimationFrame(tick);
     }
   }, [handleScan, isScanning]);
 
-
   useEffect(() => {
-    const enableCamera = async () => {
-      if (isScanning) {
+    let animationFrameId: number;
+
+    const startCamera = async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           streamRef.current = stream;
@@ -139,7 +138,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             videoRef.current.srcObject = stream;
             videoRef.current.onloadedmetadata = () => {
               videoRef.current?.play().catch(err => console.error("Video play error:", err));
-              requestAnimationFrame(tick);
+              animationFrameId = requestAnimationFrame(tick);
             };
           }
         } catch (error) {
@@ -152,16 +151,20 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             description: 'Please enable camera permissions in your browser settings to use this app.',
           });
         }
-      } else {
-        stopCamera();
       }
-    };
+    
+    if(isScanning){
+        startCamera();
+    } else {
+        stopCamera();
+    }
   
-    enableCamera();
-  
-    // Cleanup function to stop the camera when the component unmounts or isScanning becomes false
+    // Cleanup function to stop the camera and animation frame
     return () => {
       stopCamera();
+      if(animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [isScanning, stopCamera, toast, tick]);
 
