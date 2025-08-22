@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 export const metadata: Metadata = {
   title: 'SwiftAttend',
   description: 'QR Code Attendance System',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -22,6 +23,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="#1E88E5" />
       </head>
       <body className={cn("min-h-screen bg-background font-body antialiased", inter.variable)}>
         {children}
