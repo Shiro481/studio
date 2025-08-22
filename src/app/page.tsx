@@ -20,7 +20,7 @@ export default function HomePage() {
   const handleScanSuccess = (newRecord: Omit<AttendanceRecord, 'id'>) => {
     if (newRecord.status === 'Logged In') {
       const today = new Date().toLocaleDateString();
-      const hasLoggedInToday = records.some(
+      const existingRecord = records.find(
         record =>
           record.studentName === newRecord.studentName &&
           record.subject === newRecord.subject &&
@@ -28,7 +28,7 @@ export default function HomePage() {
           new Date(record.timestamp).toLocaleDateString() === today
       );
 
-      if (hasLoggedInToday) {
+      if (existingRecord) {
         toast({
           variant: 'destructive',
           title: (
@@ -37,7 +37,7 @@ export default function HomePage() {
               <span>Login Failed</span>
             </div>
           ),
-          description: `${newRecord.studentName} is already logged in for ${newRecord.subject} today.`,
+          description: `${newRecord.studentName} has already logged in for ${newRecord.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
         });
         return;
       }
