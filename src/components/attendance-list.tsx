@@ -1,6 +1,6 @@
 "use client";
 
-import type { FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { Download, ListChecks, Trash2, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { AttendanceRecord } from '@/types';
 import { cn } from '@/lib/utils';
+import { Skeleton } from './ui/skeleton';
 
 interface AttendanceListProps {
   records: AttendanceRecord[];
@@ -40,6 +41,12 @@ interface AttendanceListProps {
 }
 
 export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const exportToCSV = () => {
     const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
     const csvRows = [
@@ -79,7 +86,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  disabled={records.length === 0}
+                  disabled={!isClient || records.length === 0}
                   variant="destructive"
                   size="sm"
                 >
@@ -104,7 +111,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             </AlertDialog>
             <Button
               onClick={exportToCSV}
-              disabled={records.length === 0}
+              disabled={!isClient || records.length === 0}
               variant="outline"
               size="sm"
             >
@@ -127,7 +134,17 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
               </TableRow>
             </TableHeader>
             <TableBody>
-              {records.length > 0 ? (
+              {!isClient ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <div className="flex flex-col gap-2">
+                         <Skeleton className="h-8 w-full" />
+                         <Skeleton className="h-8 w-full" />
+                         <Skeleton className="h-8 w-full" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+              ) : records.length > 0 ? (
                 records.map(record => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">
