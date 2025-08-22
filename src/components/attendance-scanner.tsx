@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type FC } from 'react';
-import { QrCode, Loader2, CheckCircle, XCircle, CameraOff, LogIn, LogOut } from 'lucide-react';
+import { QrCode, Loader2, CheckCircle, XCircle, CameraOff, LogIn, LogOut, VideoOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -35,7 +35,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const [isScanning, setIsScanning] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [scanMode, setScanMode] = useState<'in' | 'out'>('in');
-
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,19 +44,19 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const { toast } = useToast();
   
   const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
   }, []);
 
   const handleScan = useCallback((studentName: string) => {
     setIsProcessing(true);
-    setIsScanning(false);
+    setIsScanning(false); 
     
     if (studentName) {
         const newRecord = {
@@ -94,7 +94,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     setTimeout(() => setIsProcessing(false), 500); 
   }, [onScanSuccess, scanMode, selectedSubject, toast]);
 
-
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
       const video = videoRef.current;
@@ -113,19 +112,22 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
           if (code?.data) {
             handleScan(code.data);
-            return; // Stop ticking once a code is found
+            return; 
           }
         } catch (e) {
             // Ignore getImageData errors that can happen when the canvas is not ready
         }
       }
     }
-    animationFrameRef.current = requestAnimationFrame(tick);
-  }, [handleScan]);
+    if (isScanning) {
+      animationFrameRef.current = requestAnimationFrame(tick);
+    }
+  }, [handleScan, isScanning]);
 
   useEffect(() => {
-    const getCameraPermission = async () => {
+    const startCamera = async () => {
       if (isScanning) {
+        setCameraError(null);
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           setHasCameraPermission(true);
@@ -138,27 +140,35 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             };
           }
         } catch (error) {
-          console.error('Error accessing camera:', error);
+            console.error('Error accessing camera:', error);
+            if (error instanceof Error) {
+                if (error.name === 'NotAllowedError') {
+                    setCameraError('Camera access was denied. Please enable camera permissions in your browser settings.');
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
+                } else {
+                    setCameraError('An unexpected error occurred while accessing the camera.');
+                }
+            } else {
+                setCameraError('An unknown error occurred.');
+            }
           setHasCameraPermission(false);
           setIsScanning(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use this app.',
-          });
         }
       } else {
         stopCamera();
       }
-    }
+    };
     
-    getCameraPermission();
+    startCamera();
   
-    // Cleanup function to stop the camera and animation frame on unmount
     return () => {
       stopCamera();
     };
-  }, [isScanning, stopCamera, toast, tick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScanning]);
 
 
   const toggleScan = () => {
@@ -216,24 +226,29 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
           </div>
         </div>
 
-
         <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             {isScanning && hasCameraPermission && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
-             {!isScanning && (
+             {!isScanning && hasCameraPermission && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />
                 </div>
             )}
+            {hasCameraPermission === false && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4 text-center">
+                    <VideoOff className="h-16 w-16 text-white/50 mb-4" />
+                    <h3 className="font-bold">Camera Unavailable</h3>
+                 </div>
+            )}
         </div>
         
-        {hasCameraPermission === false && (
+        {cameraError && (
             <Alert variant="destructive">
                 <CameraOff className="h-4 w-4" />
-                <AlertTitle>Camera Access Required</AlertTitle>
+                <AlertTitle>Camera Error</AlertTitle>
                 <AlertDescription>
-                Please allow camera access in your browser to use this feature.
+                 {cameraError}
                 </AlertDescription>
             </Alert>
         )}
