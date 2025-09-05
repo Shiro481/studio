@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
-import { User, QrCode, Download, Trash2, List } from 'lucide-react';
+import { User, QrCode, Download, Trash2, List, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,12 +39,21 @@ export const QrCodeGenerator: FC = () => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (editingCodeId && editInputRef.current) {
+        editInputRef.current.focus();
+    }
+  }, [editingCodeId]);
 
   const generateQrCode = () => {
     if (!studentName.trim()) {
@@ -63,7 +71,7 @@ export const QrCodeGenerator: FC = () => {
     };
     
     setGeneratedCode(newCode);
-    setStoredCodes(prev => [...prev, newCode]);
+    setStoredCodes(prev => [newCode, ...prev]);
     setStudentName('');
     toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
   };
@@ -91,6 +99,31 @@ export const QrCodeGenerator: FC = () => {
   const handleDeleteCode = (id: string) => {
     setStoredCodes(prev => prev.filter(code => code.id !== id));
     toast({ title: "Success", description: "QR Code removed." });
+  };
+  
+  const handleEditStart = (code: StoredQrCode) => {
+    setEditingCodeId(code.id);
+    setEditingName(code.name);
+  };
+
+  const handleEditCancel = () => {
+    setEditingCodeId(null);
+    setEditingName('');
+  };
+
+  const handleEditSave = () => {
+    if (!editingCodeId) return;
+
+    if (!editingName.trim()) {
+      toast({ title: "Error", description: "Student name cannot be empty.", variant: "destructive" });
+      return;
+    }
+    
+    setStoredCodes(prev => 
+        prev.map(c => c.id === editingCodeId ? { ...c, name: editingName.trim() } : c)
+    );
+    toast({ title: "Success", description: "Student name updated." });
+    handleEditCancel();
   };
 
   return (
@@ -138,11 +171,28 @@ export const QrCodeGenerator: FC = () => {
             <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
               {storedCodes.map(code => (
                 <div key={code.id} className="flex items-center justify-between p-2 bg-muted rounded-md">
-                   <div className="flex items-center gap-2">
-                    <img src={code.url} alt={code.name} className="w-8 h-8 rounded-sm bg-white" data-ai-hint="qr code" />
-                    <span className="text-sm">{code.name}</span>
+                   <div className="flex items-center gap-2 flex-grow min-w-0">
+                    <img src={code.url} alt={code.name} className="w-8 h-8 rounded-sm bg-white flex-shrink-0" data-ai-hint="qr code" />
+                    {editingCodeId === code.id ? (
+                        <Input
+                            ref={editInputRef}
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onBlur={handleEditSave}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleEditSave();
+                                if (e.key === 'Escape') handleEditCancel();
+                            }}
+                            className="h-8"
+                        />
+                    ) : (
+                        <span className="text-sm truncate">{code.name}</span>
+                    )}
                    </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button size="icon" variant="ghost" onClick={() => handleEditStart(code)} aria-label="Edit Name">
+                        <Edit className="h-4 w-4" />
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDownload(code)} aria-label="Download QR Code">
                       <Download className="h-4 w-4" />
                     </Button>
