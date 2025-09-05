@@ -1,3 +1,4 @@
+
 export type AttendanceRecord = {
   id: string;
   studentName: string;
@@ -6,3 +7,10 @@ export type AttendanceRecord = {
   isValid: boolean;
   status: 'Logged In' | 'Logged Out';
 };
+
+export interface StoredQrCode {
+  id: string;
+  name: string;
+  url: string;
+  data: string;
+}

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type FC } from 'react';
@@ -22,14 +23,15 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
 import { Switch } from '@/components/ui/switch';
-import type { AttendanceRecord } from '@/types';
+import type { AttendanceRecord, StoredQrCode } from '@/types';
 
 interface AttendanceScannerProps {
   onScanSuccess: (record: Omit<AttendanceRecord, 'id'>) => void;
   subjects: string[];
+  storedCodes: StoredQrCode[];
 }
 
-export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects }) => {
+export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -55,18 +57,21 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
   }, []);
 
-  const handleScan = useCallback((studentName: string) => {
+  const handleScan = useCallback((qrData: string) => {
     setIsProcessing(true);
     setIsScanning(false); 
     
-    if (studentName) {
+    if (qrData) {
+        const matchingCode = storedCodes.find(c => c.data === qrData);
+        const studentName = matchingCode ? matchingCode.name : qrData;
+
         const newRecord = {
-        studentName: studentName,
-        subject: selectedSubject,
-        timestamp: new Date().toISOString(),
-        isValid: true,
-        status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
-      };
+            studentName: studentName,
+            subject: selectedSubject,
+            timestamp: new Date().toISOString(),
+            isValid: true,
+            status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
+        };
 
       onScanSuccess(newRecord);
 
@@ -93,7 +98,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
     }
     setTimeout(() => setIsProcessing(false), 500); 
-  }, [onScanSuccess, scanMode, selectedSubject, toast]);
+  }, [onScanSuccess, scanMode, selectedSubject, toast, storedCodes]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
@@ -127,6 +132,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
   useEffect(() => {
     if (isScanning) {
+      let cleanup: (() => void) | undefined;
       const startCamera = async () => {
         setCameraError(null);
         setHasCameraPermission(null);
@@ -147,7 +153,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
             videoRef.current.addEventListener('loadedmetadata', onCanPlay);
 
-            return () => { // Return a cleanup function
+            cleanup = () => { // Assign cleanup function
               if (videoRef.current) {
                   videoRef.current.removeEventListener('loadedmetadata', onCanPlay);
               }
@@ -174,16 +180,14 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         }
       };
 
-      const cleanupPromise = startCamera();
+      startCamera();
 
       return () => {
-        cleanupPromise.then(cleanup => {
-          if (cleanup) {
-            cleanup();
-          } else {
-            stopCamera();
-          }
-        });
+        if (cleanup) {
+          cleanup();
+        } else {
+          stopCamera();
+        }
       };
     } else {
       stopCamera();

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import type { AttendanceRecord } from '@/types';
+import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ export default function HomePage() {
   const router = useRouter();
   const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Math', 'Science', 'History']);
+  const [storedCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
   const { toast } = useToast();
 
   const handleScanSuccess = (newRecord: Omit<AttendanceRecord, 'id'>) => {
@@ -65,7 +66,7 @@ export default function HomePage() {
       </header>
       <main className="flex-grow p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} />
+          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} />
         </div>
       </main>
     </div>
