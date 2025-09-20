@@ -26,7 +26,7 @@ import { Switch } from '@/components/ui/switch';
 import type { AttendanceRecord, StoredQrCode } from '@/types';
 
 interface AttendanceScannerProps {
-  onScanSuccess: (record: Omit<AttendanceRecord, 'id'>) => void;
+  onScanSuccess: (record: Omit<AttendanceRecord, 'id' | 'timestamp'>) => void;
   subjects: string[];
   storedCodes: StoredQrCode[];
 }
@@ -68,7 +68,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         const newRecord = {
             studentName: studentName,
             subject: selectedSubject,
-            timestamp: new Date().toISOString(),
             isValid: true,
             status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
         };
