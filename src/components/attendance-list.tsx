@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, type FC } from 'react';
@@ -38,14 +39,10 @@ interface AttendanceListProps {
   records: AttendanceRecord[];
   onClear: () => void;
   onDelete: (id: string) => void;
+  loading: boolean;
 }
 
-export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete }) => {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete, loading }) => {
 
   const exportToCSV = () => {
     const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
@@ -86,7 +83,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  disabled={!isClient || records.length === 0}
+                  disabled={loading || records.length === 0}
                   variant="destructive"
                   size="sm"
                 >
@@ -111,7 +108,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             </AlertDialog>
             <Button
               onClick={exportToCSV}
-              disabled={!isClient || records.length === 0}
+              disabled={loading || records.length === 0}
               variant="outline"
               size="sm"
             >
@@ -134,16 +131,16 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!isClient ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <div className="flex flex-col gap-2">
-                         <Skeleton className="h-8 w-full" />
-                         <Skeleton className="h-8 w-full" />
-                         <Skeleton className="h-8 w-full" />
-                      </div>
-                    </TableCell>
-                  </TableRow>
+              {loading ? (
+                  <>
+                    {[...Array(3)].map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell colSpan={6}>
+                                <Skeleton className="h-8 w-full" />
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                  </>
               ) : records.length > 0 ? (
                 records.map(record => (
                   <TableRow key={record.id}>

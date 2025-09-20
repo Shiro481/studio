@@ -1,50 +1,22 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
-import type { AttendanceRecord, StoredQrCode } from '@/types';
+import type { AttendanceRecord } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { useAppContext } from '@/context/AppContext';
 
 export default function HomePage() {
   const router = useRouter();
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const { toast } = useToast();
-
-  useEffect(() => {
-    const subjectsQuery = query(collection(db, 'subjects'));
-    const unsubscribeSubjects = onSnapshot(subjectsQuery, (querySnapshot) => {
-      const subjectsData = querySnapshot.docs.map(doc => doc.data().name as string);
-      setSubjects(subjectsData);
-    });
-  
-    const codesQuery = query(collection(db, 'qrCodes'));
-    const unsubscribeCodes = onSnapshot(codesQuery, (querySnapshot) => {
-      const codesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
-      setStoredCodes(codesData);
-    });
-
-    const recordsQuery = query(collection(db, 'attendanceRecords'));
-    const unsubscribeRecords = onSnapshot(recordsQuery, (querySnapshot) => {
-      const recordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      setRecords(recordsData);
-    });
-  
-    return () => {
-      unsubscribeSubjects();
-      unsubscribeCodes();
-      unsubscribeRecords();
-    };
-  }, []);
-
+  const { subjects, storedCodes, records, loading } = useAppContext();
 
   const handleScanSuccess = useCallback(async (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
     if (newRecord.status === 'Logged In') {
@@ -82,12 +54,20 @@ export default function HomePage() {
         }
     }
     
-    await addDoc(collection(db, 'attendanceRecords'), {
-        ...newRecord,
-        timestamp: new Date().toISOString(),
-    });
-
-  }, []);
+    try {
+        await addDoc(collection(db, 'attendanceRecords'), {
+            ...newRecord,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+        console.error("Error adding document: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not save attendance record.',
+        });
+    }
+  }, [toast]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -109,7 +89,7 @@ export default function HomePage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-2xl mx-auto">
-          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} />
+          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} loading={loading} />
         </div>
       </main>
     </div>

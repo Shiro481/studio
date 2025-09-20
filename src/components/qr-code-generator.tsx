@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
-import { User, QrCode, Download, Trash2, List, Edit } from 'lucide-react';
+import { User, QrCode, Download, Trash2, List, Edit, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,31 +28,29 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { StoredQrCode } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { Skeleton } from './ui/skeleton';
 
 
 interface QrCodeGeneratorProps {
     storedCodes: StoredQrCode[];
+    loading: boolean;
 }
 
-export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
+export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading }) => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
-  const [sortedCodes, setSortedCodes] = useState<StoredQrCode[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    const sorted = [...storedCodes].sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
-    setSortedCodes(sorted);
-  }, [storedCodes]);
+  const sortedCodes = [...storedCodes].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
 
 
   useEffect(() => {
@@ -66,6 +64,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
       toast({ title: "Error", description: "Please enter a student name.", variant: "destructive" });
       return;
     }
+    setIsGenerating(true);
     const name = studentName.trim();
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
@@ -77,10 +76,17 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
       createdAt: new Date().toISOString(),
     };
     
-    const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
-    setGeneratedCode({ id: docRef.id, ...newCode });
-    setStudentName('');
-    toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
+    try {
+        const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
+        setGeneratedCode({ id: docRef.id, ...newCode });
+        setStudentName('');
+        toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
+    } catch (error) {
+        console.error("Error generating QR code:", error);
+        toast({ title: "Error", description: "Failed to save QR code.", variant: "destructive" });
+    } finally {
+        setIsGenerating(false);
+    }
   };
   
   const handleDownload = async (code: StoredQrCode) => {
@@ -132,6 +138,33 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     toast({ title: "Success", description: "Student name updated." });
     handleEditCancel();
   };
+  
+  if (loading) {
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-3/5" />
+                <Skeleton className="h-4 w-4/5" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <div className="flex gap-2">
+                        <Skeleton className="h-10 flex-grow" />
+                        <Skeleton className="h-10 w-28" />
+                    </div>
+                </div>
+                <div className="space-y-3 pt-4 border-t">
+                    <Skeleton className="h-4 w-32" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+  }
 
   return (
     <Card>
@@ -151,10 +184,11 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
               onChange={(e) => setStudentName(e.target.value)}
               placeholder="Enter student's name"
               onKeyDown={(e) => e.key === 'Enter' && generateQrCode()}
+              disabled={isGenerating}
             />
-            <Button onClick={generateQrCode} className="w-full sm:w-auto">
-              <QrCode className="mr-2 h-4 w-4" />
-              Generate
+            <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={isGenerating}>
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+              {isGenerating ? "Generating..." : "Generate"}
             </Button>
           </div>
         </div>
@@ -172,7 +206,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
           </div>
         )}
 
-        {isClient && sortedCodes.length > 0 && (
+        {sortedCodes.length > 0 && (
           <div className="space-y-3 pt-4 border-t">
             <h4 className="text-sm font-medium text-muted-foreground">Saved QR Codes</h4>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
@@ -233,7 +267,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
             </div>
           </div>
         )}
-         {isClient && sortedCodes.length === 0 && !generatedCode && (
+         {sortedCodes.length === 0 && !generatedCode && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.

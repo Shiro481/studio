@@ -24,14 +24,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
 import { Switch } from '@/components/ui/switch';
 import type { AttendanceRecord, StoredQrCode } from '@/types';
+import { Skeleton } from './ui/skeleton';
 
 interface AttendanceScannerProps {
   onScanSuccess: (record: Omit<AttendanceRecord, 'id' | 'timestamp'>) => void;
   subjects: string[];
   storedCodes: StoredQrCode[];
+  loading: boolean;
 }
 
-export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes }) => {
+export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes, loading }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -44,7 +46,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const animationFrameRef = useRef<number>();
 
   const { toast } = useToast();
-  
+
   const stopCamera = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -56,7 +58,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       videoRef.current.srcObject = null;
     }
   }, []);
-
+  
   const handleScan = useCallback((qrData: string) => {
     setIsProcessing(true);
     setIsScanning(false); 
@@ -68,7 +70,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         const newRecord = {
             studentName: studentName,
             subject: selectedSubject,
-            isValid: true,
+            isValid: !!matchingCode,
             status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
         };
 
@@ -96,7 +98,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    setTimeout(() => setIsProcessing(false), 500); 
+    setTimeout(() => setIsProcessing(false), 2000); 
   }, [scanMode, selectedSubject, storedCodes, onScanSuccess, toast]);
 
   const tick = useCallback(() => {
@@ -117,10 +119,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
           if (code?.data) {
             handleScan(code.data);
-            return; // Stop ticking once a code is found
+            return; 
           }
         } catch (e) {
-            // Ignore getImageData errors that can happen when the canvas is not ready
+            // Ignore getImageData errors
         }
       }
     }
@@ -152,7 +154,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
             videoRef.current.addEventListener('loadedmetadata', onCanPlay);
 
-            cleanup = () => { // Assign cleanup function
+            cleanup = () => { 
               if (videoRef.current) {
                   videoRef.current.removeEventListener('loadedmetadata', onCanPlay);
               }
@@ -167,7 +169,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
               } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
                   setCameraError('No camera was found. Please ensure a camera is connected and enabled.');
               } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                  setCameraError('The camera is already in use by another application (like Zoom or Teams). Please close the other application and try again.');
+                  setCameraError('The camera is already in use by another application. Please close it and try again.');
               } else {
                   setCameraError('An unexpected error occurred while accessing the camera.');
               }
@@ -205,6 +207,23 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
     setIsScanning(prev => !prev);
   };
+
+  if (loading) {
+      return (
+          <Card>
+              <CardHeader>
+                  <Skeleton className="h-8 w-3/5" />
+                  <Skeleton className="h-4 w-4/5" />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="aspect-video w-full" />
+                  <Skeleton className="h-10 w-full" />
+              </CardContent>
+          </Card>
+      )
+  }
   
 
   return (

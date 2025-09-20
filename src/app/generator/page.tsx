@@ -1,39 +1,16 @@
 
 "use client";
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { QrCodeGenerator } from '@/components/qr-code-generator';
 import { SubjectManager } from '@/components/subject-manager';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, History } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import type { StoredQrCode } from '@/types';
+import { useAppContext } from '@/context/AppContext';
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
-
-  useEffect(() => {
-    const subjectsQuery = query(collection(db, 'subjects'));
-    const unsubscribeSubjects = onSnapshot(subjectsQuery, (querySnapshot) => {
-      const subjectsData = querySnapshot.docs.map(doc => doc.data().name as string);
-      setSubjects(subjectsData);
-    });
-
-    const codesQuery = query(collection(db, 'qrCodes'));
-    const unsubscribeCodes = onSnapshot(codesQuery, (querySnapshot) => {
-      const codesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
-      setStoredCodes(codesData);
-    });
-
-    return () => {
-      unsubscribeSubjects();
-      unsubscribeCodes();
-    };
-  }, []);
+  const { subjects, storedCodes, loading } = useAppContext();
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -55,8 +32,8 @@ export default function GeneratorPage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <QrCodeGenerator storedCodes={storedCodes} />
-            <SubjectManager subjects={subjects} />
+            <QrCodeGenerator storedCodes={storedCodes} loading={loading} />
+            <SubjectManager subjects={subjects} loading={loading} />
         </div>
       </main>
     </div>
