@@ -8,13 +8,27 @@ import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, writeBatch, doc, deleteDoc, getDocs } from 'firebase/firestore';
-import { useAppContext } from '@/context/AppContext';
+import { collection, writeBatch, doc, deleteDoc, getDocs, query, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import type { AttendanceRecord } from '@/types';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { records } = useAppContext();
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const recordsQuery = query(collection(db, 'attendanceRecords'));
+    const unsubscribe = onSnapshot(recordsQuery, (querySnapshot) => {
+      const recordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setRecords(recordsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    }, (error) => {
+        console.error("Error fetching attendance records:", error);
+        toast({ title: "Error", description: "Failed to load attendance history.", variant: "destructive" });
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
 
   const handleClearHistory = async () => {
     if (records.length === 0) {
@@ -31,7 +45,6 @@ export default function HistoryPage() {
             return;
         }
 
-        // Firestore limits batches to 500 operations.
         const batchSize = 500;
         const batches = [];
         

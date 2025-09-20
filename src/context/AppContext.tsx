@@ -7,7 +7,7 @@ import type { StoredQrCode, AttendanceRecord } from '@/types';
 interface AppContextType {
   subjects: string[];
   storedCodes: StoredQrCode[];
-  records: AttendanceRecord[];
+  records: AttendanceRecord[]; // This will now be an empty array, history is managed locally.
   loading: boolean;
 }
 

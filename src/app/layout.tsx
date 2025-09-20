@@ -8,7 +8,7 @@ import { AppProvider } from '@/context/AppContext';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import type { StoredQrCode, AttendanceRecord } from '@/types';
+import type { StoredQrCode } from '@/types';
 
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -20,13 +20,11 @@ export default function RootLayout({
 }>) {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // States to track loading of each collection
   const [subjectsLoaded, setSubjectsLoaded] = useState(false);
   const [codesLoaded, setCodesLoaded] = useState(false);
-  const [recordsLoaded, setRecordsLoaded] = useState(false);
 
 
   useEffect(() => {
@@ -50,28 +48,17 @@ export default function RootLayout({
         setCodesLoaded(true);
     });
 
-    const recordsQuery = query(collection(db, 'attendanceRecords'));
-    const unsubscribeRecords = onSnapshot(recordsQuery, (querySnapshot) => {
-      const recordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      setRecords(recordsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      setRecordsLoaded(true);
-    }, (error) => {
-        console.error("Error fetching attendance records:", error);
-        setRecordsLoaded(true);
-    });
-
     return () => {
       unsubscribeSubjects();
       unsubscribeCodes();
-      unsubscribeRecords();
     };
   }, []);
 
   useEffect(() => {
-    if (subjectsLoaded && codesLoaded && recordsLoaded) {
+    if (subjectsLoaded && codesLoaded) {
       setLoading(false);
     }
-  }, [subjectsLoaded, codesLoaded, recordsLoaded]);
+  }, [subjectsLoaded, codesLoaded]);
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -84,7 +71,7 @@ export default function RootLayout({
           <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
-        <AppProvider value={{ subjects, storedCodes, records, loading }}>
+        <AppProvider value={{ subjects, storedCodes, records: [], loading }}>
             {children}
         </AppProvider>
         <Toaster />
