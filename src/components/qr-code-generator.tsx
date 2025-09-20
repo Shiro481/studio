@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { FC } from 'react';
 import { User, QrCode, Download, Trash2, List, Edit, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,6 @@ import {
 import type { StoredQrCode } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { Skeleton } from './ui/skeleton';
 
 
 interface QrCodeGeneratorProps {
@@ -139,43 +138,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading
     handleEditCancel();
   };
   
-  if (loading) {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-3/5" />
-                <Skeleton className="h-4 w-4/5" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-20" />
-                    <div className="flex gap-2">
-                        <Skeleton className="h-10 flex-grow" />
-                        <Skeleton className="h-10 w-28" />
-                    </div>
-                </div>
-                <div className="space-y-3 pt-4 border-t">
-                    <Skeleton className="h-4 w-32" />
-                    <div className="space-y-2">
-                        {[...Array(3)].map((_, i) => (
-                           <div key={i} className="flex items-center justify-between p-2 rounded-md gap-2">
-                                <div className="flex items-center gap-2 flex-grow min-w-0">
-                                    <Skeleton className="w-8 h-8 rounded-sm flex-shrink-0" />
-                                    <Skeleton className="h-5 w-32" />
-                                </div>
-                                <div className="flex gap-1 flex-shrink-0">
-                                    <Skeleton className="h-8 w-8" />
-                                    <Skeleton className="h-8 w-8" />
-                                    <Skeleton className="h-8 w-8" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    )
-  }
 
   return (
     <Card>
