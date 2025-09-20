@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { FC } from 'react';
-import { User, QrCode, Download, Trash2, List, Edit, Loader2 } from 'lucide-react';
+import { User, QrCode, Download, Trash2, List, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -39,7 +39,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [studentName, setStudentName] = useState('');
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -57,11 +56,9 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   }, [editingCodeId]);
 
   const generateQrCode = async () => {
-    if (!studentName.trim() || isSubmitting) {
+    if (!studentName.trim()) {
       return;
     }
-    
-    setIsSubmitting(true);
 
     const name = studentName.trim();
     const qrData = crypto.randomUUID();
@@ -81,8 +78,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     } catch (error) {
         console.error("Error generating QR code:", error);
         toast({ title: "Error", description: "Failed to save QR code.", variant: "destructive" });
-    } finally {
-        setIsSubmitting(false);
     }
   };
   
@@ -155,11 +150,10 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
               onChange={(e) => setStudentName(e.target.value)}
               placeholder="Enter student's name"
               onKeyDown={(e) => e.key === 'Enter' && generateQrCode()}
-              disabled={isSubmitting}
             />
-            <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={isSubmitting || !studentName.trim()}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-              {isSubmitting ? 'Generating...' : 'Generate'}
+            <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={!studentName.trim()}>
+              <QrCode className="mr-2 h-4 w-4" />
+              Generate
             </Button>
           </div>
         </div>
