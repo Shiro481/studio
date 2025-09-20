@@ -82,15 +82,12 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-
-    // A small delay to give feedback and prevent immediate re-scans
-    setTimeout(() => {
-        setIsProcessing(false);
-        if(!isScanning){ // If user has not manually started scanning again
-            setIsScanning(true); // resume scanning
-        }
-    }, 500);
-
+    
+    // Resume scanning immediately
+    setIsProcessing(false);
+    if(!isScanning){ 
+        setIsScanning(true);
+    }
   }, [scanMode, selectedSubject, onScanSuccess, toast, isScanning]);
 
   const tick = useCallback(() => {
