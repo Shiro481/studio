@@ -75,7 +75,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
 
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <CardTitle>Attendance History</CardTitle>
           <CardDescription>
@@ -121,7 +121,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relative w-full overflow-auto max-h-[60vh]">
+        <div className="relative w-full overflow-auto max-h-[65vh]">
           <Table>
             <TableHeader className="sticky top-0 bg-card z-10">
               <TableRow>

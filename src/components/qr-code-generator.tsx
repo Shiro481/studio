@@ -154,7 +154,7 @@ export const QrCodeGenerator: FC = () => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="student-name">Student Name</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="student-name"
               value={studentName}
@@ -162,7 +162,7 @@ export const QrCodeGenerator: FC = () => {
               placeholder="Enter student's name"
               onKeyDown={(e) => e.key === 'Enter' && generateQrCode()}
             />
-            <Button onClick={generateQrCode}>
+            <Button onClick={generateQrCode} className="w-full sm:w-auto">
               <QrCode className="mr-2 h-4 w-4" />
               Generate
             </Button>
@@ -185,9 +185,9 @@ export const QrCodeGenerator: FC = () => {
         {isClient && storedCodes.length > 0 && (
           <div className="space-y-3 pt-4 border-t">
             <h4 className="text-sm font-medium text-muted-foreground">Saved QR Codes</h4>
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
               {storedCodes.map(code => (
-                <div key={code.id} className="flex items-center justify-between p-2 bg-muted rounded-md">
+                <div key={code.id} className="flex items-center justify-between p-2 bg-muted rounded-md gap-2">
                    <div className="flex items-center gap-2 flex-grow min-w-0">
                     <img src={code.url} alt={code.name} className="w-8 h-8 rounded-sm bg-white flex-shrink-0" data-ai-hint="qr code" />
                     {editingCodeId === code.id ? (
@@ -206,7 +206,7 @@ export const QrCodeGenerator: FC = () => {
                         <span className="text-sm truncate">{code.name}</span>
                     )}
                    </div>
-                  <div className="flex gap-1 flex-shrink-0">
+                  <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
                     <Button size="icon" variant="ghost" onClick={() => handleEditStart(code)} aria-label="Edit Name">
                         <Edit className="h-4 w-4" />
                     </Button>
