@@ -60,6 +60,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     }
 
     const name = studentName.trim();
+    setStudentName('');
     
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
@@ -72,7 +73,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     };
     
     try {
-        setStudentName('');
         await addDoc(collection(db, 'qrCodes'), newCode);
         toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
     } catch (error) {
@@ -124,22 +124,23 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   };
 
   const handleEditSave = async () => {
-    if (!editingCodeId) return;
-
-    if (!editingName.trim()) {
+    if (!editingCodeId || !editingName.trim()) {
       toast({ title: "Error", description: "Student name cannot be empty.", variant: "destructive" });
       return;
     }
-    
+
+    const trimmedName = editingName.trim();
+    const originalId = editingCodeId;
+
+    handleEditCancel(); // Exit edit mode synchronously before the async call
+
     try {
-        const codeDocRef = doc(db, "qrCodes", editingCodeId);
-        await updateDoc(codeDocRef, { name: editingName.trim() });
+        const codeDocRef = doc(db, "qrCodes", originalId);
+        await updateDoc(codeDocRef, { name: trimmedName });
         toast({ title: "Success", description: "Student name updated." });
-        handleEditCancel();
     } catch (error) {
         toast({ title: "Error", description: "Failed to update name.", variant: "destructive" });
         console.error("Error updating document:", error);
-        handleEditCancel();
     }
   };
   
