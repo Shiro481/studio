@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -26,13 +27,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { StoredQrCode } from '@/types';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 
-export const QrCodeGenerator: FC = () => {
+interface QrCodeGeneratorProps {
+    storedCodes: StoredQrCode[];
+}
+
+export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
-  const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -65,16 +70,15 @@ export const QrCodeGenerator: FC = () => {
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
 
-    const newCode: StoredQrCode = {
-      id: qrData,
+    const newCode: Omit<StoredQrCode, 'id'> = {
       name: name,
       url: url,
       data: qrData,
       createdAt: new Date().toISOString(),
     };
     
-    setStoredCodes(prev => [newCode, ...prev]);
-    setGeneratedCode(newCode);
+    const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
+    setGeneratedCode({ id: docRef.id, ...newCode });
     setStudentName('');
     toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
   };
@@ -99,8 +103,8 @@ export const QrCodeGenerator: FC = () => {
     }
   };
 
-  const handleDeleteCode = (id: string) => {
-    setStoredCodes(prev => prev.filter(c => c.id !== id));
+  const handleDeleteCode = async (id: string) => {
+    await deleteDoc(doc(db, "qrCodes", id));
     toast({ title: "Success", description: "QR Code removed." });
   };
   
@@ -114,7 +118,7 @@ export const QrCodeGenerator: FC = () => {
     setEditingName('');
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editingCodeId) return;
 
     if (!editingName.trim()) {
@@ -122,7 +126,9 @@ export const QrCodeGenerator: FC = () => {
       return;
     }
     
-    setStoredCodes(prev => prev.map(c => c.id === editingCodeId ? { ...c, name: editingName.trim() } : c));
+    const codeDocRef = doc(db, "qrCodes", editingCodeId);
+    await updateDoc(codeDocRef, { name: editingName.trim() });
+
     toast({ title: "Success", description: "Student name updated." });
     handleEditCancel();
   };

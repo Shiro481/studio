@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRouter } from 'next/navigation';
@@ -6,34 +7,61 @@ import { AttendanceList } from '@/components/attendance-list';
 import type { AttendanceRecord } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, QrCode } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, writeBatch, doc, deleteDoc, getDocs } from 'firebase/firestore';
+
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
-  const [sortedRecords, setSortedRecords] = useState<AttendanceRecord[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
   const { toast } = useToast();
 
   useEffect(() => {
-    const sorted = [...records].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setSortedRecords(sorted);
-  }, [records]);
+    const q = query(collection(db, "attendanceRecords"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const recordsData: AttendanceRecord[] = [];
+        querySnapshot.forEach((doc) => {
+            recordsData.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
+        });
+        const sorted = recordsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setRecords(sorted);
+    });
 
-  const handleClearHistory = () => {
+    return () => unsubscribe();
+  }, []);
+
+  const handleClearHistory = async () => {
     if (records.length === 0) {
         toast({ title: "Info", description: "History is already empty." });
         return;
     }
-    setRecords([]);
-    toast({ title: "Success", description: "Attendance history cleared." });
+    
+    try {
+        const recordsCollection = collection(db, "attendanceRecords");
+        const recordsSnapshot = await getDocs(recordsCollection);
+        const batch = writeBatch(db);
+        recordsSnapshot.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        toast({ title: "Success", description: "Attendance history cleared." });
+    } catch (error) {
+        console.error("Error clearing history:", error);
+        toast({ title: "Error", description: "Failed to clear history.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteRecord = (id: string) => {
-    setRecords(prevRecords => prevRecords.filter(record => record.id !== id));
-    toast({ title: "Success", description: "Record deleted." });
+  const handleDeleteRecord = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, "attendanceRecords", id));
+        toast({ title: "Success", description: "Record deleted." });
+    } catch (error) {
+        console.error("Error deleting record:", error);
+        toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
+    }
   };
 
   return (
@@ -56,7 +84,7 @@ export default function HistoryPage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <AttendanceList records={sortedRecords} onClear={handleClearHistory} onDelete={handleDeleteRecord} />
+          <AttendanceList records={records} onClear={handleClearHistory} onDelete={handleDeleteRecord} />
         </div>
       </main>
     </div>

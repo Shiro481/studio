@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FC } from 'react';
@@ -22,22 +23,23 @@ import {
 import { Input } from '@/components/ui/input';
 import { X, Edit, Plus, BookCopy, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 
 interface SubjectManagerProps {
   subjects: string[];
-  setSubjects: (value: string[] | ((val: string[]) => string[])) => void;
 }
 
-export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects }) => {
+export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
   const [newSubject, setNewSubject] = useState('');
   const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
 
-  const handleAddSubject = () => {
+  const handleAddSubject = async () => {
     const trimmedSubject = newSubject.trim();
     if (trimmedSubject && !subjects.includes(trimmedSubject)) {
-      setSubjects(prev => [...prev, trimmedSubject]);
+      await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
       setNewSubject('');
       toast({ title: "Success", description: "Subject added." });
     } else if (subjects.includes(trimmedSubject)) {
@@ -45,18 +47,27 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects 
     }
   };
 
-  const handleUpdateSubject = () => {
+  const handleUpdateSubject = async () => {
     if (editingSubject && editingSubject.newName.trim() && !subjects.includes(editingSubject.newName.trim())) {
-      setSubjects(prev => prev.map(s => s === editingSubject.oldName ? editingSubject.newName.trim() : s));
-      toast({ title: "Success", description: "Subject updated." });
-      setEditingSubject(null);
+        const q = query(collection(db, "subjects"), where("name", "==", editingSubject.oldName));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach(async (document) => {
+            await updateDoc(doc(db, "subjects", document.id), { name: editingSubject.newName.trim() });
+        });
+
+        toast({ title: "Success", description: "Subject updated." });
+        setEditingSubject(null);
     } else if (editingSubject && subjects.includes(editingSubject.newName.trim())) {
         toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
     }
   };
 
-  const handleDeleteSubject = (subjectName: string) => {
-    setSubjects(prev => prev.filter(s => s !== subjectName));
+  const handleDeleteSubject = async (subjectName: string) => {
+    const q = query(collection(db, "subjects"), where("name", "==", subjectName));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach(async (document) => {
+        await deleteDoc(doc(db, "subjects", document.id));
+    });
     toast({ title: "Success", description: "Subject removed." });
   };
 

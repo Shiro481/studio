@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
@@ -8,36 +9,65 @@ import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, where, getDocs, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 export default function HomePage() {
   const router = useRouter();
-  const [subjects] = useLocalStorage<string[]>('subjects', []);
-  const [storedCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
-  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const { toast } = useToast();
 
-  const handleScanSuccess = (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
+  useEffect(() => {
+    const subjectsQuery = query(collection(db, 'subjects'));
+    const unsubscribeSubjects = onSnapshot(subjectsQuery, (querySnapshot) => {
+      const subjectsData = querySnapshot.docs.map(doc => doc.data().name as string);
+      setSubjects(subjectsData);
+    });
+  
+    const codesQuery = query(collection(db, 'qrCodes'));
+    const unsubscribeCodes = onSnapshot(codesQuery, (querySnapshot) => {
+      const codesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
+      setStoredCodes(codesData);
+    });
+
+    const recordsQuery = query(collection(db, 'attendanceRecords'));
+    const unsubscribeRecords = onSnapshot(recordsQuery, (querySnapshot) => {
+      const recordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setRecords(recordsData);
+    });
+  
+    return () => {
+      unsubscribeSubjects();
+      unsubscribeCodes();
+      unsubscribeRecords();
+    };
+  }, []);
+
+
+  const handleScanSuccess = useCallback(async (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
     if (newRecord.status === 'Logged In') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const alreadyLoggedIn = records.some(
-            (record) =>
-                record.studentName === newRecord.studentName &&
-                record.subject === newRecord.subject &&
-                record.status === 'Logged In' &&
-                new Date(record.timestamp) >= today
+        const q = query(
+            collection(db, "attendanceRecords"),
+            where("studentName", "==", newRecord.studentName),
+            where("subject", "==", newRecord.subject),
+            where("status", "==", "Logged In")
         );
+        
+        const querySnapshot = await getDocs(q);
+        const alreadyLoggedIn = querySnapshot.docs.some(doc => {
+            const record = doc.data() as AttendanceRecord;
+            return new Date(record.timestamp) >= today;
+        });
+
 
         if (alreadyLoggedIn) {
-            const existingRecord = records.find(
-              (record) =>
-                record.studentName === newRecord.studentName &&
-                record.subject === newRecord.subject &&
-                record.status === 'Logged In' &&
-                new Date(record.timestamp) >= today
-            )!;
+            const existingRecordDoc = querySnapshot.docs.find(doc => new Date(doc.data().timestamp) >= today)!;
+            const existingRecord = existingRecordDoc.data() as AttendanceRecord;
             toast({
                 variant: 'destructive',
                 title: (
@@ -52,15 +82,12 @@ export default function HomePage() {
         }
     }
     
-    setRecords(prev => {
-        const recordWithId: AttendanceRecord = {
-            ...newRecord,
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-        };
-        return [...prev, recordWithId];
+    await addDoc(collection(db, 'attendanceRecords'), {
+        ...newRecord,
+        timestamp: new Date().toISOString(),
     });
-  };
+
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-background">
