@@ -23,12 +23,14 @@ export default function HomePage() {
     let studentName = '';
     let isValidCode = false;
 
+    // 1. Fast check in local cache
     let matchingCode = storedCodes.find(c => c.data === scannedData.qrData);
 
     if (matchingCode) {
         studentName = matchingCode.name;
         isValidCode = true;
     } else {
+        // 2. Fallback to a direct Firestore query if not found in cache
         try {
             const q = query(collection(db, "qrCodes"), where("data", "==", scannedData.qrData), limit(1));
             const querySnapshot = await getDocs(q);
@@ -80,19 +82,29 @@ export default function HomePage() {
             where("scanDate", "==", todayString)
         );
         
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-            const existingRecord = querySnapshot.docs[0].data() as AttendanceRecord;
-            toast({
+        try {
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                const existingRecord = querySnapshot.docs[0].data() as AttendanceRecord;
+                toast({
+                    variant: 'destructive',
+                    title: (
+                        <div className="flex items-center gap-2">
+                            <XCircle className="h-5 w-5" />
+                            <span>Login Failed</span>
+                        </div>
+                    ),
+                    description: `${newRecordBase.studentName} has already logged in for ${newRecordBase.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
+                });
+                return;
+            }
+        } catch (error) {
+             console.error("Error checking for existing login:", error);
+             toast({
                 variant: 'destructive',
-                title: (
-                    <div className="flex items-center gap-2">
-                        <XCircle className="h-5 w-5" />
-                        <span>Login Failed</span>
-                    </div>
-                ),
-                description: `${newRecordBase.studentName} has already logged in for ${newRecordBase.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
+                title: 'Error',
+                description: 'Could not check for previous login. Please try again.',
             });
             return;
         }
@@ -105,6 +117,7 @@ export default function HomePage() {
             timestamp: timestamp,
             scanDate: timestamp.split('T')[0], // Add YYYY-MM-DD for efficient querying
         });
+        // Short delay to allow listeners to potentially pick up the change.
         setTimeout(() => {
             toast({
                 title: (
