@@ -164,8 +164,8 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
               disabled={isSubmitting}
             />
             <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={isSubmitting || !studentName.trim()}>
-              <QrCode className="mr-2 h-4 w-4" />
-              Generate
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+              {isSubmitting ? 'Generating...' : 'Generate'}
             </Button>
           </div>
         </div>
