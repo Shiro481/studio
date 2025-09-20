@@ -157,8 +157,19 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading
                 <div className="space-y-3 pt-4 border-t">
                     <Skeleton className="h-4 w-32" />
                     <div className="space-y-2">
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
+                        {[...Array(3)].map((_, i) => (
+                           <div key={i} className="flex items-center justify-between p-2 rounded-md gap-2">
+                                <div className="flex items-center gap-2 flex-grow min-w-0">
+                                    <Skeleton className="w-8 h-8 rounded-sm flex-shrink-0" />
+                                    <Skeleton className="h-5 w-32" />
+                                </div>
+                                <div className="flex gap-1 flex-shrink-0">
+                                    <Skeleton className="h-8 w-8" />
+                                    <Skeleton className="h-8 w-8" />
+                                    <Skeleton className="h-8 w-8" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </CardContent>
@@ -267,7 +278,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading
             </div>
           </div>
         )}
-         {sortedCodes.length === 0 && !generatedCode && (
+         {sortedCodes.length === 0 && !generatedCode && !loading && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.

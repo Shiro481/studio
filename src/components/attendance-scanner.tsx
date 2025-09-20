@@ -216,8 +216,11 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
                   <Skeleton className="h-4 w-4/5" />
               </CardHeader>
               <CardContent className="space-y-6">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-12 w-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <Skeleton className="h-16 w-full" />
                   <Skeleton className="aspect-video w-full" />
                   <Skeleton className="h-10 w-full" />
               </CardContent>
