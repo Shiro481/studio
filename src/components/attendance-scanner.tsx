@@ -57,7 +57,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
   }, []);
 
-  const handleScan = useCallback((qrData: string) => {
+  const handleScan = (qrData: string) => {
     setIsProcessing(true);
     setIsScanning(false); 
     
@@ -97,7 +97,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
     }
     setTimeout(() => setIsProcessing(false), 500); 
-  }, [onScanSuccess, scanMode, selectedSubject, toast, storedCodes]);
+  };
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
