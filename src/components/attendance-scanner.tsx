@@ -24,16 +24,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
 import { Switch } from '@/components/ui/switch';
 import type { AttendanceRecord, StoredQrCode } from '@/types';
-import { Skeleton } from './ui/skeleton';
 
 interface AttendanceScannerProps {
   onScanSuccess: (record: Omit<AttendanceRecord, 'id' | 'timestamp'>) => void;
   subjects: string[];
   storedCodes: StoredQrCode[];
-  loading: boolean;
 }
 
-export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes, loading }) => {
+export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -207,27 +205,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
     setIsScanning(prev => !prev);
   };
-
-  if (loading) {
-      return (
-          <Card>
-              <CardHeader>
-                  <Skeleton className="h-8 w-3/5" />
-                  <Skeleton className="h-4 w-4/5" />
-              </CardHeader>
-              <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="aspect-video w-full" />
-                  <Skeleton className="h-10 w-full" />
-              </CardContent>
-          </Card>
-      )
-  }
-  
 
   return (
     <Card>

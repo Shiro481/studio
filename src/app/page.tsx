@@ -16,7 +16,7 @@ import { useAppContext } from '@/context/AppContext';
 export default function HomePage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { subjects, storedCodes, records, loading } = useAppContext();
+  const { subjects, storedCodes, records } = useAppContext();
 
   const handleScanSuccess = useCallback(async (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
     if (newRecord.status === 'Logged In') {
@@ -89,7 +89,7 @@ export default function HomePage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-2xl mx-auto">
-          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} loading={loading} />
+          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} />
         </div>
       </main>
     </div>
