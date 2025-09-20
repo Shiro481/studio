@@ -23,21 +23,20 @@ export default function HomePage() {
     let studentName = '';
     let isValidCode = false;
 
-    // 1. Fast check in local cache
-    let matchingCode = storedCodes.find(c => c.data === scannedData.qrData);
+    // 1. Fast check in local cache first
+    const matchingCode = storedCodes.find(c => c.data === scannedData.qrData);
 
     if (matchingCode) {
         studentName = matchingCode.name;
         isValidCode = true;
     } else {
-        // 2. Fallback to a direct Firestore query if not found in cache
+        // 2. If not in cache, fallback to a direct Firestore query
         try {
             const q = query(collection(db, "qrCodes"), where("data", "==", scannedData.qrData), limit(1));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
-                const doc = querySnapshot.docs[0];
-                const code = doc.data() as StoredQrCode;
-                studentName = code.name;
+                const codeDoc = querySnapshot.docs[0].data() as StoredQrCode;
+                studentName = codeDoc.name;
                 isValidCode = true;
             }
         } catch (error) {
@@ -71,6 +70,7 @@ export default function HomePage() {
         status: scannedData.status,
     };
 
+    // Check for existing login only if the status is 'Logged In'
     if (newRecordBase.status === 'Logged In') {
         const todayString = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
 
@@ -117,7 +117,8 @@ export default function HomePage() {
             timestamp: timestamp,
             scanDate: timestamp.split('T')[0], // Add YYYY-MM-DD for efficient querying
         });
-        // Short delay to allow listeners to potentially pick up the change.
+        
+        // Use a short timeout to allow Firestore's real-time listener to update the UI
         setTimeout(() => {
             toast({
                 title: (
@@ -129,6 +130,7 @@ export default function HomePage() {
                 description: `Scan processed for subject ${scannedData.subject}.`,
             });
         }, 100);
+
     } catch (error) {
         console.error("Error adding document: ", error);
         toast({
