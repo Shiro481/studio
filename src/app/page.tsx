@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
@@ -17,7 +17,7 @@ export default function HomePage() {
   const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const { toast } = useToast();
 
-  const handleScanSuccess = (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
+  const handleScanSuccess = useCallback((newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
     if (newRecord.status === 'Logged In') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -60,7 +60,7 @@ export default function HomePage() {
         };
         return [...prev, recordWithId];
     });
-  };
+  }, [records, setRecords, toast]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
