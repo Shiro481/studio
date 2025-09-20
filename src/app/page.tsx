@@ -125,7 +125,7 @@ export default function HomePage() {
                 <span>Success</span>
               </div>
             ),
-            description: `Scan processed for subject ${scannedData.subject}.`,
+            description: `${newRecordBase.studentName} has been ${newRecordBase.status.toLowerCase()} for ${scannedData.subject}.`,
         });
 
     } catch (error) {
@@ -136,7 +136,7 @@ export default function HomePage() {
             description: 'Could not save attendance record.',
         });
     }
-  }, [toast, storedCodes, subjects]);
+  }, [toast, storedCodes]);
 
   return (
     <div className="flex flex-col h-screen bg-background">

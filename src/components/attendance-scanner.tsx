@@ -41,6 +41,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
+  const lastScanTime = useRef(0);
+  const scanCooldown = 2000; // 2 seconds
 
   const { toast } = useToast();
 
@@ -57,38 +59,21 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   }, []);
   
   const handleScan = useCallback((qrData: string) => {
-    setIsProcessing(true);
-    setIsScanning(false); 
-    
-    if (qrData) {
-        const scanData = {
-            qrData,
-            subject: selectedSubject,
-            status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
-        };
-      
-      onScanSuccess(scanData);
+    const now = Date.now();
+    if (now - lastScanTime.current < scanCooldown) {
+      return; // Still in cooldown
+    }
+    lastScanTime.current = now;
 
-    } else {
-      console.error('Failed to process QR code: No data found');
-      toast({
-        title: (
-          <div className="flex items-center gap-2">
-            <XCircle className="h-5 w-5" />
-            <span>Scan Failed</span>
-          </div>
-        ),
-        description: 'The QR code appears to be invalid or corrupted.',
-        variant: 'destructive',
-      });
-    }
-    
-    // Resume scanning immediately
-    setIsProcessing(false);
-    if(!isScanning){ 
-        setIsScanning(true);
-    }
-  }, [scanMode, selectedSubject, onScanSuccess, toast, isScanning]);
+    // We don't block the UI. Fire and forget.
+    // The main page will handle toasts and database logic.
+    onScanSuccess({
+        qrData,
+        subject: selectedSubject,
+        status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
+    });
+
+  }, [scanMode, selectedSubject, onScanSuccess, scanCooldown]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
@@ -108,10 +93,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
           if (code?.data) {
             handleScan(code.data);
-            return; 
+            // Don't return, keep scanning
           }
         } catch (e) {
-            // Ignore getImageData errors
+            // Ignore getImageData errors that can happen on occasion
         }
       }
     }
@@ -138,7 +123,9 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
                 console.error("Video play error:", err);
                 setCameraError("Failed to play video stream.");
               });
-              animationFrameRef.current = requestAnimationFrame(tick);
+              if (!animationFrameRef.current) {
+                  animationFrameRef.current = requestAnimationFrame(tick);
+              }
             };
 
             videoRef.current.addEventListener('loadedmetadata', onCanPlay);
@@ -208,7 +195,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="subject-select">Subject</Label>
-          <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={isScanning || isProcessing}>
+          <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={isScanning}>
             <SelectTrigger id="subject-select">
               <SelectValue placeholder="Select a subject" />
             </SelectTrigger>
@@ -242,7 +229,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
-            {isScanning && hasCameraPermission && <div className="absolute inset-0 border-[8px] border-primary/50 rounded-lg" />}
+            {isScanning && hasCameraPermission && <div className="absolute inset-0 border-8 border-primary/50 rounded-lg animate-pulse" />}
              {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />
@@ -266,13 +253,9 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             </Alert>
         )}
 
-        <Button onClick={toggleScan} disabled={isProcessing || subjects.length === 0} className="w-full">
-          {isProcessing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <QrCode className="mr-2 h-4 w-4" />
-          )}
-          {isProcessing ? 'Processing...' : (isScanning ? 'Stop Scanning' : 'Scan with Camera')}
+        <Button onClick={toggleScan} disabled={subjects.length === 0} className="w-full">
+          <QrCode className="mr-2 h-4 w-4" />
+          {isScanning ? 'Stop Scanning' : 'Start Scanning'}
         </Button>
       </CardContent>
     </Card>
