@@ -5,12 +5,12 @@ import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
-import type { AttendanceRecord } from '@/types';
+import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { useAppContext } from '@/context/AppContext';
 
 export default function HomePage() {
@@ -18,15 +18,49 @@ export default function HomePage() {
   const { toast } = useToast();
   const { subjects, storedCodes, records } = useAppContext();
 
-  const handleScanSuccess = useCallback(async (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
-    if (newRecord.status === 'Logged In') {
+  const handleScanSuccess = useCallback(async (scannedData: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => {
+    
+    // Step 1: Find the student name. First, try the fast local cache.
+    let matchingCode = storedCodes.find(c => c.data === scannedData.qrData);
+    let studentName = matchingCode ? matchingCode.name : '';
+    let isValid = !!matchingCode;
+
+    // Step 2: If not found locally, query Firestore as a fallback.
+    if (!matchingCode) {
+        try {
+            const q = query(collection(db, "qrCodes"), where("data", "==", scannedData.qrData), limit(1));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const doc = querySnapshot.docs[0];
+                const code = doc.data() as StoredQrCode;
+                studentName = code.name;
+                isValid = true;
+            }
+        } catch (error) {
+            console.error("Error querying Firestore for QR code:", error);
+        }
+    }
+
+    // If still no name, use the raw QR data.
+    if (!studentName) {
+        studentName = scannedData.qrData;
+    }
+    
+    const newRecordBase = {
+        studentName: studentName,
+        subject: scannedData.subject,
+        status: scannedData.status,
+        isValid: isValid,
+    };
+
+    if (newRecordBase.status === 'Logged In') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const q = query(
             collection(db, "attendanceRecords"),
-            where("studentName", "==", newRecord.studentName),
-            where("subject", "==", newRecord.subject),
+            where("studentName", "==", newRecordBase.studentName),
+            where("subject", "==", newRecordBase.subject),
             where("status", "==", "Logged In")
         );
         
@@ -48,7 +82,7 @@ export default function HomePage() {
                         <span>Login Failed</span>
                     </div>
                 ),
-                description: `${newRecord.studentName} has already logged in for ${newRecord.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
+                description: `${newRecordBase.studentName} has already logged in for ${newRecordBase.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
             });
             return;
         }
@@ -56,7 +90,7 @@ export default function HomePage() {
     
     try {
         await addDoc(collection(db, 'attendanceRecords'), {
-            ...newRecord,
+            ...newRecordBase,
             timestamp: new Date().toISOString(),
         });
     } catch (error) {
@@ -67,7 +101,7 @@ export default function HomePage() {
             description: 'Could not save attendance record.',
         });
     }
-  }, [toast, records]);
+  }, [toast, records, storedCodes]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -89,7 +123,7 @@ export default function HomePage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-2xl mx-auto">
-          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} storedCodes={storedCodes} />
+          <AttendanceScanner onScanSuccess={handleScanSuccess} subjects={subjects} />
         </div>
       </main>
     </div>

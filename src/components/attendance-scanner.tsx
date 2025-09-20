@@ -23,15 +23,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import jsQR from 'jsqr';
 import { Switch } from '@/components/ui/switch';
-import type { AttendanceRecord, StoredQrCode } from '@/types';
+import type { AttendanceRecord } from '@/types';
 
 interface AttendanceScannerProps {
-  onScanSuccess: (record: Omit<AttendanceRecord, 'id' | 'timestamp'>) => void;
+  onScanSuccess: (data: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => void;
   subjects: string[];
-  storedCodes: StoredQrCode[];
 }
 
-export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects, storedCodes }) => {
+export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, subjects }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -57,22 +56,18 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
   }, []);
   
-  const handleScan = useCallback((qrData: string) => {
+  const handleScan = useCallback(async (qrData: string) => {
     setIsProcessing(true);
     setIsScanning(false); 
     
     if (qrData) {
-        const matchingCode = storedCodes.find(c => c.data === qrData);
-        const studentName = matchingCode ? matchingCode.name : qrData;
-
-        const newRecord = {
-            studentName: studentName,
+        const scanData = {
+            qrData,
             subject: selectedSubject,
-            isValid: !!matchingCode,
             status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
         };
 
-      onScanSuccess(newRecord);
+      await onScanSuccess(scanData);
 
       toast({
         title: (
@@ -81,10 +76,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             <span>Success</span>
           </div>
         ),
-        description: `Attendance for ${newRecord.studentName} (${newRecord.status}) recorded.`,
+        description: `Scan processed for subject ${scanData.subject}.`,
       });
     } else {
-      console.error('Failed to process QR code: No student name found');
+      console.error('Failed to process QR code: No data found');
       toast({
         title: (
           <div className="flex items-center gap-2">
@@ -97,7 +92,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       });
     }
     setTimeout(() => setIsProcessing(false), 2000); 
-  }, [scanMode, selectedSubject, storedCodes, onScanSuccess, toast]);
+  }, [scanMode, selectedSubject, onScanSuccess, toast]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
