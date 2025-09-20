@@ -24,35 +24,41 @@ export default function RootLayout({
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // States to track loading of each collection
+  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
+  const [codesLoaded, setCodesLoaded] = useState(false);
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
+
+
   useEffect(() => {
     const subjectsQuery = query(collection(db, 'subjects'));
     const unsubscribeSubjects = onSnapshot(subjectsQuery, (querySnapshot) => {
       const subjectsData = querySnapshot.docs.map(doc => doc.data().name as string);
       setSubjects(subjectsData);
-      setLoading(false);
+      setSubjectsLoaded(true);
     }, (error) => {
       console.error("Error fetching subjects:", error);
-      setLoading(false);
+      setSubjectsLoaded(true);
     });
 
     const codesQuery = query(collection(db, 'qrCodes'));
     const unsubscribeCodes = onSnapshot(codesQuery, (querySnapshot) => {
       const codesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
       setStoredCodes(codesData);
-      setLoading(false);
+      setCodesLoaded(true);
     }, (error) => {
         console.error("Error fetching QR codes:", error);
-        setLoading(false);
+        setCodesLoaded(true);
     });
 
     const recordsQuery = query(collection(db, 'attendanceRecords'));
     const unsubscribeRecords = onSnapshot(recordsQuery, (querySnapshot) => {
       const recordsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
       setRecords(recordsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      setLoading(false);
+      setRecordsLoaded(true);
     }, (error) => {
         console.error("Error fetching attendance records:", error);
-        setLoading(false);
+        setRecordsLoaded(true);
     });
 
     return () => {
@@ -61,6 +67,12 @@ export default function RootLayout({
       unsubscribeRecords();
     };
   }, []);
+
+  useEffect(() => {
+    if (subjectsLoaded && codesLoaded && recordsLoaded) {
+      setLoading(false);
+    }
+  }, [subjectsLoaded, codesLoaded, recordsLoaded]);
 
   return (
     <html lang="en" suppressHydrationWarning>
