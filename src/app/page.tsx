@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
 import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
-import { History, QrCode, XCircle } from 'lucide-react';
+import { History, QrCode, XCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs, limit } from 'firebase/firestore';
@@ -104,6 +104,15 @@ export default function HomePage() {
             ...newRecordBase,
             timestamp: timestamp,
             scanDate: timestamp.split('T')[0], // Add YYYY-MM-DD for efficient querying
+        });
+        toast({
+            title: (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>Success</span>
+              </div>
+            ),
+            description: `Scan processed for subject ${scannedData.subject}.`,
         });
     } catch (error) {
         console.error("Error adding document: ", error);

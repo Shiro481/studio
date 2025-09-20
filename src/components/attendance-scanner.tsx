@@ -69,15 +69,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
       await onScanSuccess(scanData);
 
-      toast({
-        title: (
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            <span>Success</span>
-          </div>
-        ),
-        description: `Scan processed for subject ${scanData.subject}.`,
-      });
     } else {
       console.error('Failed to process QR code: No data found');
       toast({
@@ -91,7 +82,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    setTimeout(() => setIsProcessing(false), 2000); 
+    setIsProcessing(false);
   }, [scanMode, selectedSubject, onScanSuccess, toast]);
 
   const tick = useCallback(() => {
