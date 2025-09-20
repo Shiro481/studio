@@ -40,7 +40,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -58,11 +58,13 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   }, [editingCodeId]);
 
   const generateQrCode = async () => {
-    if (!studentName.trim()) {
-      toast({ title: "Error", description: "Please enter a student name.", variant: "destructive" });
+    if (!studentName.trim() || isSubmitting) {
       return;
     }
-    setIsGenerating(true);
+    
+    setIsSubmitting(true);
+    setGeneratedCode(null);
+
     const name = studentName.trim();
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
@@ -83,7 +85,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
         console.error("Error generating QR code:", error);
         toast({ title: "Error", description: "Failed to save QR code.", variant: "destructive" });
     } finally {
-        setIsGenerating(false);
+        setIsSubmitting(false);
     }
   };
   
@@ -108,6 +110,9 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   };
 
   const handleDeleteCode = async (id: string) => {
+    if (generatedCode?.id === id) {
+        setGeneratedCode(null);
+    }
     await deleteDoc(doc(db, "qrCodes", id));
     toast({ title: "Success", description: "QR Code removed." });
   };
@@ -156,11 +161,11 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
               onChange={(e) => setStudentName(e.target.value)}
               placeholder="Enter student's name"
               onKeyDown={(e) => e.key === 'Enter' && generateQrCode()}
-              disabled={isGenerating}
+              disabled={isSubmitting}
             />
-            <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={isGenerating}>
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-              {isGenerating ? "Generating..." : "Generate"}
+            <Button onClick={generateQrCode} className="w-full sm:w-auto" disabled={isSubmitting || !studentName.trim()}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+              {isSubmitting ? "Generating..." : "Generate"}
             </Button>
           </div>
         </div>
@@ -239,7 +244,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
             </div>
           </div>
         )}
-         {sortedCodes.length === 0 && !generatedCode && (
+         {storedCodes.length === 0 && !generatedCode && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.
