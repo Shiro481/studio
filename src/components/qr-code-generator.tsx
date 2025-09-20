@@ -60,6 +60,8 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     }
 
     const name = studentName.trim();
+    setStudentName('');
+    
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
 
@@ -72,11 +74,11 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     
     try {
         await addDoc(collection(db, 'qrCodes'), newCode);
-        setStudentName('');
         toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
     } catch (error) {
         console.error("Error generating QR code:", error);
         toast({ title: "Error", description: "Failed to save QR code.", variant: "destructive" });
+        setStudentName(name); // Restore name on failure
     }
   };
   
@@ -133,10 +135,10 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
         const codeDocRef = doc(db, "qrCodes", editingCodeId);
         await updateDoc(codeDocRef, { name: editingName.trim() });
         toast({ title: "Success", description: "Student name updated." });
+        handleEditCancel();
     } catch (error) {
         toast({ title: "Error", description: "Failed to update name.", variant: "destructive" });
         console.error("Error updating document:", error);
-    } finally {
         handleEditCancel();
     }
   };
