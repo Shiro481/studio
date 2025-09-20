@@ -18,10 +18,11 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubSubjects = onSnapshot(collection(db, 'subjects'), (snapshot) => {
-      setSubjects(snapshot.docs.map(doc => doc.data().name).sort());
+    const unsubSubjects = onSnapshot(query(collection(db, 'subjects'), orderBy('name')), (snapshot) => {
+      setSubjects(snapshot.docs.map(doc => doc.data().name));
     });
-    const unsubQrCodes = onSnapshot(collection(db, 'qrCodes'), (snapshot) => {
+    
+    const unsubQrCodes = onSnapshot(query(collection(db, 'qrCodes'), orderBy('createdAt', 'desc')), (snapshot) => {
       setStoredCodes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode)));
     });
 

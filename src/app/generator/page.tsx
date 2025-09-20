@@ -7,7 +7,7 @@ import { SubjectManager } from '@/components/subject-manager';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, History } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 
 export default function GeneratorPage() {
@@ -15,8 +15,9 @@ export default function GeneratorPage() {
   const [subjects, setSubjects] = useState<string[]>([]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'subjects'), (snapshot) => {
-        const subjectsData = snapshot.docs.map(doc => doc.data().name).sort();
+    const q = query(collection(db, 'subjects'), orderBy('name'));
+    const unsub = onSnapshot(q, (snapshot) => {
+        const subjectsData = snapshot.docs.map(doc => doc.data().name);
         setSubjects(subjectsData);
     });
     return () => unsub();
