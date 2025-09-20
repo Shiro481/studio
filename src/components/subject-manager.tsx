@@ -20,47 +20,70 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { X, Edit, Plus, BookCopy, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
+
 
 interface SubjectManagerProps {
   subjects: string[];
-  setSubjects: (subjects: string[] | ((subjects: string[]) => string[])) => void;
 }
 
-export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects }) => {
+export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
   const [newSubject, setNewSubject] = useState('');
-  const [editingSubject, setEditingSubject] = useState<{ index: number; name: string } | null>(null);
+  const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
 
-  const handleAddSubject = () => {
-    if (newSubject.trim() && !subjects.includes(newSubject.trim())) {
-      setSubjects(prev => [...prev, newSubject.trim()]);
-      setNewSubject('');
-      toast({ title: "Success", description: "Subject added." });
-    } else if (subjects.includes(newSubject.trim())) {
+  const handleAddSubject = async () => {
+    const trimmedSubject = newSubject.trim();
+    if (trimmedSubject && !subjects.includes(trimmedSubject)) {
+      try {
+        await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
+        setNewSubject('');
+        toast({ title: "Success", description: "Subject added." });
+      } catch (error) {
+        console.error("Error adding subject: ", error);
+        toast({ title: "Error", description: "Failed to add subject.", variant: "destructive" });
+      }
+    } else if (subjects.includes(trimmedSubject)) {
       toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
     }
   };
 
-  const handleUpdateSubject = () => {
-    if (editingSubject && editingSubject.name.trim() && !subjects.includes(editingSubject.name.trim())) {
-      setSubjects(prev => {
-        const updated = [...prev];
-        updated[editingSubject.index] = editingSubject.name.trim();
-        return updated;
-      });
-      setEditingSubject(null);
-      toast({ title: "Success", description: "Subject updated." });
-    } else if (editingSubject && subjects.includes(editingSubject.name.trim())) {
+  const handleUpdateSubject = async () => {
+    if (editingSubject && editingSubject.newName.trim() && !subjects.includes(editingSubject.newName.trim())) {
+      try {
+        const q = query(collection(db, 'subjects'), where('name', '==', editingSubject.oldName));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const docRef = querySnapshot.docs[0].ref;
+            await updateDoc(docRef, { name: editingSubject.newName.trim() });
+            toast({ title: "Success", description: "Subject updated." });
+        }
+        setEditingSubject(null);
+      } catch (error) {
+        console.error("Error updating subject: ", error);
+        toast({ title: "Error", description: "Failed to update subject.", variant: "destructive" });
+      }
+    } else if (editingSubject && subjects.includes(editingSubject.newName.trim())) {
         toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
     }
   };
 
-  const handleDeleteSubject = (index: number) => {
-    setSubjects(prev => prev.filter((_, i) => i !== index));
-    toast({ title: "Success", description: "Subject removed." });
+  const handleDeleteSubject = async (subjectName: string) => {
+    try {
+        const q = query(collection(db, 'subjects'), where('name', '==', subjectName));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const docRef = querySnapshot.docs[0].ref;
+            await deleteDoc(docRef);
+            toast({ title: "Success", description: "Subject removed." });
+        }
+    } catch (error) {
+        console.error("Error deleting subject: ", error);
+        toast({ title: "Error", description: "Failed to remove subject.", variant: "destructive" });
+    }
   };
 
   return (
@@ -70,7 +93,7 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects 
         <CardDescription>Add, edit, or remove subjects.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Dialog>
+        <Dialog onOpenChange={() => setEditingSubject(null)}>
           <DialogTrigger asChild>
             <Button className="w-full">
               <BookCopy className="mr-2" />
@@ -90,18 +113,19 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects 
                   value={newSubject}
                   onChange={(e) => setNewSubject(e.target.value)}
                   placeholder="New subject name"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
                 />
                 <Button onClick={handleAddSubject} size="icon" aria-label="Add subject">
                   <Plus />
                 </Button>
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {subjects.map((subject, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    {editingSubject?.index === index ? (
+                {subjects.map((subject) => (
+                  <div key={subject} className="flex items-center gap-2">
+                    {editingSubject?.oldName === subject ? (
                       <Input
-                        value={editingSubject.name}
-                        onChange={(e) => setEditingSubject({ ...editingSubject, name: e.target.value })}
+                        value={editingSubject.newName}
+                        onChange={(e) => setEditingSubject({ ...editingSubject, newName: e.target.value })}
                         onBlur={handleUpdateSubject}
                         onKeyDown={(e) => e.key === 'Enter' && handleUpdateSubject()}
                         autoFocus
@@ -109,10 +133,10 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects 
                     ) : (
                       <div className="flex-grow p-2 bg-muted rounded-md text-sm">{subject}</div>
                     )}
-                     <Button onClick={() => setEditingSubject({ index, name: subject })} size="icon" variant="ghost" aria-label="Edit subject">
+                     <Button onClick={() => setEditingSubject({ oldName: subject, newName: subject })} size="icon" variant="ghost" aria-label="Edit subject">
                       <Edit />
                     </Button>
-                    <Button onClick={() => handleDeleteSubject(index)} size="icon" variant="destructive" aria-label="Delete subject">
+                    <Button onClick={() => handleDeleteSubject(subject)} size="icon" variant="destructive" aria-label="Delete subject">
                       <X />
                     </Button>
                   </div>

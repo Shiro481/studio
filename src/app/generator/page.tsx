@@ -4,13 +4,24 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { QrCodeGenerator } from '@/components/qr-code-generator';
 import { SubjectManager } from '@/components/subject-manager';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, History } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Math', 'Science', 'History']);
+  const [subjects, setSubjects] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'subjects'), (snapshot) => {
+        const subjectsData = snapshot.docs.map(doc => doc.data().name).sort();
+        setSubjects(subjectsData);
+    });
+    return () => unsub();
+  }, []);
+
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -33,7 +44,7 @@ export default function GeneratorPage() {
       <main className="flex-grow p-4 md:p-8">
         <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
             <QrCodeGenerator />
-            <SubjectManager subjects={subjects} setSubjects={setSubjects} />
+            <SubjectManager subjects={subjects} />
         </div>
       </main>
     </div>

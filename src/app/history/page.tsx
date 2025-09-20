@@ -3,22 +3,51 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceList } from '@/components/attendance-list';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { AttendanceRecord } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, QrCode } from 'lucide-react';
-
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const { toast } = useToast();
 
-  const handleClearHistory = () => {
-    setRecords([]);
+  useEffect(() => {
+    const q = query(collection(db, 'attendanceRecords'), orderBy('timestamp', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const recordsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setRecords(recordsData);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleClearHistory = async () => {
+    try {
+        const querySnapshot = await collection(db, 'attendanceRecords').get();
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        toast({ title: "Success", description: "Attendance history cleared." });
+    } catch (error) {
+        console.error("Error clearing history: ", error);
+        toast({ title: "Error", description: "Failed to clear history.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteRecord = (id: string) => {
-    setRecords(prev => prev.filter(record => record.id !== id));
+  const handleDeleteRecord = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, 'attendanceRecords', id));
+        toast({ title: "Success", description: "Record deleted." });
+    } catch (error) {
+        console.error("Error deleting record: ", error);
+        toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
+    }
   };
 
   return (

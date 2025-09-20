@@ -1,35 +1,58 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 export default function HomePage() {
   const router = useRouter();
-  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
-  const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', ['Math', 'Science', 'History']);
-  const [storedCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
   const { toast } = useToast();
 
-  const handleScanSuccess = (newRecord: Omit<AttendanceRecord, 'id'>) => {
+  useEffect(() => {
+    const unsubSubjects = onSnapshot(collection(db, 'subjects'), (snapshot) => {
+      setSubjects(snapshot.docs.map(doc => doc.data().name).sort());
+    });
+    const unsubQrCodes = onSnapshot(collection(db, 'qrCodes'), (snapshot) => {
+      setStoredCodes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode)));
+    });
+
+    return () => {
+      unsubSubjects();
+      unsubQrCodes();
+    };
+  }, []);
+
+  const handleScanSuccess = async (newRecord: Omit<AttendanceRecord, 'id'>) => {
     if (newRecord.status === 'Logged In') {
-      const today = new Date().toLocaleDateString();
-      const existingRecord = records.find(
-        record =>
-          record.studentName === newRecord.studentName &&
-          record.subject === newRecord.subject &&
-          record.status === 'Logged In' &&
-          new Date(record.timestamp).toLocaleDateString() === today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const q = query(
+        collection(db, 'attendanceRecords'),
+        where('studentName', '==', newRecord.studentName),
+        where('subject', '==', newRecord.subject),
+        where('status', '==', 'Logged In'),
+        where('timestamp', '>=', today.toISOString()),
+        where('timestamp', '<', tomorrow.toISOString()),
+        orderBy('timestamp', 'desc'),
+        limit(1)
       );
 
-      if (existingRecord) {
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const existingRecord = querySnapshot.docs[0].data();
         toast({
           variant: 'destructive',
           title: (
@@ -43,7 +66,13 @@ export default function HomePage() {
         return;
       }
     }
-    setRecords(prev => [{ ...newRecord, id: crypto.randomUUID() }, ...prev]);
+    
+    try {
+      await addDoc(collection(db, "attendanceRecords"), newRecord);
+    } catch (e) {
+      console.error("Error adding document: ", e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not save attendance record.' });
+    }
   };
 
   return (

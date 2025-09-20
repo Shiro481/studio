@@ -13,4 +13,5 @@ export interface StoredQrCode {
   name: string;
   url: string;
   data: string;
+  createdAt?: string;
 }

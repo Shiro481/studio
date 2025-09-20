@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -26,19 +25,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import type { StoredQrCode } from '@/types';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 
-
-interface StoredQrCode {
-    id: string;
-    name: string;
-    url: string;
-    data: string;
-}
 
 export const QrCodeGenerator: FC = () => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
-  const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
+  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +42,12 @@ export const QrCodeGenerator: FC = () => {
 
   useEffect(() => {
     setIsClient(true);
+    const q = query(collection(db, 'qrCodes'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+        const codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
+        setStoredCodes(codes);
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -55,25 +56,31 @@ export const QrCodeGenerator: FC = () => {
     }
   }, [editingCodeId]);
 
-  const generateQrCode = () => {
+  const generateQrCode = async () => {
     if (!studentName.trim()) {
       toast({ title: "Error", description: "Please enter a student name.", variant: "destructive" });
       return;
     }
     const name = studentName.trim();
-    const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(name)}&size=200x200&format=png`;
+    const qrData = crypto.randomUUID();
+    const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
 
-    const newCode: StoredQrCode = {
-      id: crypto.randomUUID(),
+    const newCode = {
       name: name,
       url: url,
-      data: name,
+      data: qrData,
+      createdAt: new Date().toISOString(),
     };
     
-    setGeneratedCode(newCode);
-    setStoredCodes(prev => [newCode, ...prev]);
-    setStudentName('');
-    toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
+    try {
+        const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
+        setGeneratedCode({ ...newCode, id: docRef.id });
+        setStudentName('');
+        toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        toast({ title: "Error", description: "Could not save QR code.", variant: "destructive" });
+    }
   };
   
   const handleDownload = async (code: StoredQrCode) => {
@@ -96,9 +103,14 @@ export const QrCodeGenerator: FC = () => {
     }
   };
 
-  const handleDeleteCode = (id: string) => {
-    setStoredCodes(prev => prev.filter(code => code.id !== id));
-    toast({ title: "Success", description: "QR Code removed." });
+  const handleDeleteCode = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, "qrCodes", id));
+        toast({ title: "Success", description: "QR Code removed." });
+    } catch (error) {
+        console.error("Error removing document: ", error);
+        toast({ title: "Error", description: "Could not remove QR code.", variant: "destructive" });
+    }
   };
   
   const handleEditStart = (code: StoredQrCode) => {
@@ -111,7 +123,7 @@ export const QrCodeGenerator: FC = () => {
     setEditingName('');
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editingCodeId) return;
 
     if (!editingName.trim()) {
@@ -119,11 +131,16 @@ export const QrCodeGenerator: FC = () => {
       return;
     }
     
-    setStoredCodes(prev => 
-        prev.map(c => c.id === editingCodeId ? { ...c, name: editingName.trim() } : c)
-    );
-    toast({ title: "Success", description: "Student name updated." });
-    handleEditCancel();
+    try {
+        const codeDocRef = doc(db, 'qrCodes', editingCodeId);
+        await updateDoc(codeDocRef, { name: editingName.trim() });
+        toast({ title: "Success", description: "Student name updated." });
+    } catch (error) {
+        console.error("Error updating document: ", error);
+        toast({ title: "Error", description: "Could not update student name.", variant: "destructive" });
+    } finally {
+        handleEditCancel();
+    }
   };
 
   return (

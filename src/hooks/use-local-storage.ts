@@ -2,20 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+// This hook is no longer used for primary app data, but is kept for potential
+// use with client-side-only preferences in the future.
+
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    // This part runs only on the client, and only on the first render.
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  
+  // Client-side only effect to read from localStorage
+  useEffect(() => {
     if (typeof window === 'undefined') {
-      return initialValue;
+      return;
     }
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      setStoredValue(item ? JSON.parse(item) : initialValue);
     } catch (error) {
       console.error(error);
-      return initialValue;
+      setStoredValue(initialValue);
     }
-  });
+  }, [key, initialValue]);
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
@@ -29,7 +34,6 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     }
   };
   
-  // This effect listens for changes in other tabs
   const handleStorageChange = useCallback((event: StorageEvent) => {
     if (event.key === key && event.newValue) {
       try {
