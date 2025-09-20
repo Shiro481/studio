@@ -37,7 +37,6 @@ interface QrCodeGeneratorProps {
 
 export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [studentName, setStudentName] = useState('');
-  const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,7 +62,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     }
     
     setIsSubmitting(true);
-    setGeneratedCode(null);
 
     const name = studentName.trim();
     const qrData = crypto.randomUUID();
@@ -77,8 +75,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     };
     
     try {
-        const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
-        setGeneratedCode({ id: docRef.id, ...newCode });
+        await addDoc(collection(db, 'qrCodes'), newCode);
         setStudentName('');
         toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
     } catch (error) {
@@ -110,9 +107,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   };
 
   const handleDeleteCode = async (id: string) => {
-    if (generatedCode?.id === id) {
-        setGeneratedCode(null);
-    }
     await deleteDoc(doc(db, "qrCodes", id));
     toast({ title: "Success", description: "QR Code removed." });
   };
@@ -170,23 +164,10 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
           </div>
         </div>
 
-        {generatedCode && (
-          <div className="flex flex-col items-center gap-4 pt-4 border-t">
-             <div className="p-4 bg-white rounded-lg border">
-                <img src={generatedCode.url} alt="Generated QR Code" className="w-48 h-48" data-ai-hint="qr code" />
-             </div>
-            <p className="text-sm font-medium">{generatedCode.name}</p>
-            <Button onClick={() => handleDownload(generatedCode)} variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
-                Download PNG
-            </Button>
-          </div>
-        )}
-
         {sortedCodes.length > 0 && (
           <div className="space-y-3 pt-4 border-t">
             <h4 className="text-sm font-medium text-muted-foreground">Saved QR Codes</h4>
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
               {sortedCodes.map(code => (
                 <div key={code.id} className="flex items-center justify-between p-2 bg-muted rounded-md gap-2">
                    <div className="flex items-center gap-2 flex-grow min-w-0">
@@ -244,7 +225,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
             </div>
           </div>
         )}
-         {storedCodes.length === 0 && !generatedCode && (
+         {storedCodes.length === 0 && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.
