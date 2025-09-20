@@ -32,7 +32,7 @@ export default function GeneratorPage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <QrCodeGenerator storedCodes={storedCodes} loading={loading} />
+            <QrCodeGenerator storedCodes={storedCodes} />
             <SubjectManager subjects={subjects} loading={loading} />
         </div>
       </main>

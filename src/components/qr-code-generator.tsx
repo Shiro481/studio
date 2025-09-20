@@ -33,17 +33,16 @@ import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestor
 
 interface QrCodeGeneratorProps {
     storedCodes: StoredQrCode[];
-    loading: boolean;
 }
 
-export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading }) => {
+export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const sortedCodes = [...storedCodes].sort((a, b) => {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -240,7 +239,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes, loading
             </div>
           </div>
         )}
-         {sortedCodes.length === 0 && !generatedCode && !loading && (
+         {sortedCodes.length === 0 && !generatedCode && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.
