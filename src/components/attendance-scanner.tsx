@@ -26,7 +26,7 @@ import { Switch } from '@/components/ui/switch';
 import type { AttendanceRecord } from '@/types';
 
 interface AttendanceScannerProps {
-  onScanSuccess: (data: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => void;
+  onScanSuccess: (data: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => Promise<boolean>;
   subjects: string[];
 }
 
@@ -41,8 +41,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
-  const lastScanTime = useRef(0);
-  const scanCooldown = 2000; // 2 seconds
 
   const { toast } = useToast();
 
@@ -58,22 +56,27 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
   }, []);
   
-  const handleScan = useCallback((qrData: string) => {
-    const now = Date.now();
-    if (now - lastScanTime.current < scanCooldown) {
-      return; // Still in cooldown
-    }
-    lastScanTime.current = now;
+  const handleScan = useCallback(async (qrData: string) => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
 
-    // We don't block the UI. Fire and forget.
-    // The main page will handle toasts and database logic.
-    onScanSuccess({
+    const success = await onScanSuccess({
         qrData,
         subject: selectedSubject,
         status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
     });
 
-  }, [scanMode, selectedSubject, onScanSuccess, scanCooldown]);
+    if (success) {
+      setIsScanning(false);
+    }
+    
+    // Short cooldown before allowing another scan attempt, even on failure
+    setTimeout(() => {
+        setIsProcessing(false);
+    }, 1000);
+
+  }, [isProcessing, scanMode, selectedSubject, onScanSuccess]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
@@ -93,7 +96,6 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
           if (code?.data) {
             handleScan(code.data);
-            // Don't return, keep scanning
           }
         } catch (e) {
             // Ignore getImageData errors that can happen on occasion
@@ -109,6 +111,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     if (isScanning) {
       let cleanup: (() => void) | undefined;
       const startCamera = async () => {
+        setIsProcessing(false); // Reset processing state when starting camera
         setCameraError(null);
         setHasCameraPermission(null);
         try {
@@ -229,7 +232,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         <div className="relative aspect-video w-full rounded-md border bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
-            {isScanning && hasCameraPermission && <div className="absolute inset-0 border-8 border-primary/50 rounded-lg animate-pulse" />}
+            {isScanning && hasCameraPermission && !isProcessing && <div className="absolute inset-0 border-8 border-primary/50 rounded-lg animate-pulse" />}
+            {isProcessing && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><Loader2 className="h-12 w-12 text-white animate-spin" /></div>}
              {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                     <CameraOff className="h-16 w-16 text-white/50" />

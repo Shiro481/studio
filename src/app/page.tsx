@@ -18,7 +18,7 @@ export default function HomePage() {
   const { toast } = useToast();
   const { storedCodes, subjects } = useAppContext();
 
-  const handleScanSuccess = useCallback(async (scannedData: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => {
+  const handleScanSuccess = useCallback(async (scannedData: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }): Promise<boolean> => {
     
     let studentName = '';
     let isValidCode = false;
@@ -46,7 +46,7 @@ export default function HomePage() {
                 title: 'Error',
                 description: 'Could not verify QR code. Please try again.',
             });
-            return;
+            return false;
         }
     }
 
@@ -61,7 +61,7 @@ export default function HomePage() {
             ),
             description: 'This QR code is not recognized by the system.',
         });
-        return;
+        return false;
     }
     
     const newRecordBase = {
@@ -97,7 +97,7 @@ export default function HomePage() {
                     ),
                     description: `${newRecordBase.studentName} has already logged in for ${newRecordBase.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
                 });
-                return;
+                return false;
             }
         } catch (error) {
              console.error("Error checking for existing login:", error);
@@ -106,7 +106,7 @@ export default function HomePage() {
                 title: 'Error',
                 description: 'Could not check for previous login. Please try again.',
             });
-            return;
+            return false;
         }
     }
     
@@ -128,6 +128,8 @@ export default function HomePage() {
             description: `${newRecordBase.studentName} has been ${newRecordBase.status.toLowerCase()} for ${scannedData.subject}.`,
         });
 
+        return true;
+
     } catch (error) {
         console.error("Error adding document: ", error);
         toast({
@@ -135,6 +137,7 @@ export default function HomePage() {
             title: 'Error',
             description: 'Could not save attendance record.',
         });
+        return false;
     }
   }, [toast, storedCodes]);
 
