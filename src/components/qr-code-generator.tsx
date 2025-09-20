@@ -60,7 +60,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     }
 
     const name = studentName.trim();
-    setStudentName('');
     
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
@@ -73,6 +72,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     };
     
     try {
+        setStudentName('');
         await addDoc(collection(db, 'qrCodes'), newCode);
         toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
     } catch (error) {
