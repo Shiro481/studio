@@ -37,29 +37,29 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
   const [newSubject, setNewSubject] = useState('');
   const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleAddSubject = async () => {
     const trimmedSubject = newSubject.trim();
-    if (trimmedSubject && !subjects.includes(trimmedSubject)) {
-      setIsSubmitting(true);
-      try {
-        await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
-        setNewSubject('');
-        toast({ title: "Success", description: "Subject added." });
-      } catch (error) {
-        toast({ title: "Error", description: "Could not add subject.", variant: "destructive" });
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else if (subjects.includes(trimmedSubject)) {
+    if (!trimmedSubject) return;
+
+    if (subjects.includes(trimmedSubject)) {
       toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
+      setNewSubject('');
+      toast({ title: "Success", description: "Subject added." });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not add subject.", variant: "destructive" });
     }
   };
 
   const handleUpdateSubject = async () => {
     if (editingSubject && editingSubject.newName.trim() && !subjects.includes(editingSubject.newName.trim())) {
-        setIsSubmitting(true);
+        setIsUpdating(true);
         try {
             const q = query(collection(db, "subjects"), where("name", "==", editingSubject.oldName));
             const querySnapshot = await getDocs(q);
@@ -71,7 +71,7 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
         } catch (error) {
             toast({ title: "Error", description: "Could not update subject.", variant: "destructive" });
         } finally {
-            setIsSubmitting(false);
+            setIsUpdating(false);
             setEditingSubject(null);
         }
     } else if (editingSubject && subjects.includes(editingSubject.newName.trim())) {
@@ -134,10 +134,10 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
                   onChange={(e) => setNewSubject(e.target.value)}
                   placeholder="New subject name"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
-                  disabled={isSubmitting}
+                  disabled={isUpdating}
                 />
-                <Button onClick={handleAddSubject} size="icon" aria-label="Add subject" disabled={isSubmitting}>
-                  {isSubmitting && newSubject ? <Loader2 className="animate-spin"/> : <Plus />}
+                <Button onClick={handleAddSubject} size="icon" aria-label="Add subject" disabled={!newSubject.trim()}>
+                  <Plus />
                 </Button>
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
@@ -150,13 +150,13 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
                         onBlur={handleUpdateSubject}
                         onKeyDown={(e) => e.key === 'Enter' && handleUpdateSubject()}
                         autoFocus
-                        disabled={isSubmitting}
+                        disabled={isUpdating}
                       />
                     ) : (
                       <div className="flex-grow p-2 bg-muted rounded-md text-sm">{subject}</div>
                     )}
-                     <Button onClick={() => setEditingSubject({ oldName: subject, newName: subject })} size="icon" variant="ghost" aria-label="Edit subject" disabled={editingSubject?.oldName === subject}>
-                      <Edit className="h-4 w-4" />
+                     <Button onClick={() => setEditingSubject({ oldName: subject, newName: subject })} size="icon" variant="ghost" aria-label="Edit subject" disabled={editingSubject?.oldName === subject || isUpdating}>
+                      {isUpdating && editingSubject?.oldName === subject ? <Loader2 className="animate-spin" /> : <Edit className="h-4 w-4" />}
                     </Button>
                     <Button onClick={() => handleDeleteSubject(subject)} size="icon" variant="ghost" className="text-destructive hover:text-destructive" aria-label="Delete subject">
                       <X className="h-4 w-4" />
