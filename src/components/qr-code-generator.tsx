@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { FC } from 'react';
-import { User, QrCode, Download, Trash2, List, Edit } from 'lucide-react';
+import { User, QrCode, Download, Trash2, List, Edit, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -166,32 +166,44 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
                    <div className="flex items-center gap-2 flex-grow min-w-0">
                     <img src={code.url} alt={code.name} className="w-8 h-8 rounded-sm bg-white flex-shrink-0" data-ai-hint="qr code" />
                     {editingCodeId === code.id ? (
+                      <div className="flex-grow flex items-center gap-2">
                         <Input
                             ref={editInputRef}
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
-                            onBlur={handleEditSave}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleEditSave();
                                 if (e.key === 'Escape') handleEditCancel();
                             }}
                             className="h-8"
                         />
+                      </div>
                     ) : (
                         <span className="text-sm truncate">{code.name}</span>
                     )}
                    </div>
-                  <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-                    <Button size="icon" variant="ghost" onClick={() => handleEditStart(code)} aria-label="Edit Name">
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleDownload(code)} aria-label="Download QR Code">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCodeToDelete(code)} aria-label="Delete QR Code">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                   {editingCodeId === code.id ? (
+                     <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                        <Button size="icon" variant="ghost" onClick={handleEditSave} aria-label="Save Name" className="text-green-600 hover:text-green-600">
+                            <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={handleEditCancel} aria-label="Cancel Edit" className="text-destructive hover:text-destructive">
+                            <X className="h-4 w-4" />
+                        </Button>
+                     </div>
+                   ) : (
+                    <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
+                        <Button size="icon" variant="ghost" onClick={() => handleEditStart(code)} aria-label="Edit Name">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDownload(code)} aria-label="Download QR Code">
+                        <Download className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCodeToDelete(code)} aria-label="Delete QR Code">
+                        <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                   )}
                 </div>
               ))}
             </div>
