@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Inter } from 'next/font/google';
@@ -10,6 +11,16 @@ export const metadata: Metadata = {
   title: 'SwiftAttend',
   description: 'QR Code Attendance System',
   manifest: '/manifest.json',
+  themeColor: '#29ABE2',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SwiftAttend',
+  },
+  icons: {
+    apple: '/icon-192x192.png',
+  },
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
 export default function RootLayout({
@@ -19,14 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        <meta name="theme-color" content="#29ABE2" />
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
-      </head>
-      <body className={cn("min-h-screen bg-background font-body antialiased", inter.variable)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
           {children}
         <Toaster />
       </body>
