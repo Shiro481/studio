@@ -27,7 +27,11 @@ export default function HistoryPage() {
 
   const handleClearHistory = async () => {
     try {
-        const querySnapshot = await getDocs(collection(db, 'attendanceRecords'));
+        const querySnapshot = await getDocs(collection(db, "attendanceRecords"));
+        if (querySnapshot.empty) {
+            toast({ title: "Info", description: "History is already empty." });
+            return;
+        }
         const batch = writeBatch(db);
         querySnapshot.forEach((doc) => {
             batch.delete(doc.ref);
