@@ -30,10 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import type { AttendanceRecord } from '@/types';
-import { cn } from '@/lib/utils';
-import { Skeleton } from './ui/skeleton';
 
 interface AttendanceListProps {
   records: AttendanceRecord[];
@@ -44,7 +41,7 @@ interface AttendanceListProps {
 export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete }) => {
 
   const exportToCSV = () => {
-    const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
+    const headers = ['Student Name', 'Subject', 'Timestamp', 'Status'];
     const csvRows = [
       headers.join(','),
       ...records.map(record =>
@@ -53,7 +50,6 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
           `"${record.subject}"`,
           `"${new Date(record.timestamp).toLocaleString()}"`,
           `"${record.status}"`,
-          record.isValid ? 'Valid' : 'Invalid',
         ].join(',')
       ),
     ];
@@ -125,7 +121,6 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
                 <TableHead>Subject</TableHead>
                 <TableHead>Timestamp</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>QR Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -145,14 +140,6 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
                          {record.status === 'Logged In' ? <LogIn className="h-4 w-4 text-green-500" /> : <LogOut className="h-4 w-4 text-red-500" />}
                          <span>{record.status}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={record.isValid ? 'default' : 'destructive'}
-                        className={cn(record.isValid && 'bg-accent text-accent-foreground')}
-                      >
-                        {record.isValid ? 'Valid' : 'Invalid'}
-                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                        <AlertDialog>
@@ -185,7 +172,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={5}
                     className="h-24 text-center text-muted-foreground"
                   >
                     <div className="flex flex-col items-center gap-2">

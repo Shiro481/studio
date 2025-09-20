@@ -4,7 +4,6 @@ export type AttendanceRecord = {
   studentName: string;
   timestamp: string;
   subject: string;
-  isValid: boolean;
   status: 'Logged In' | 'Logged Out';
   scanDate?: string;
 };

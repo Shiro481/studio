@@ -16,21 +16,19 @@ import { useAppContext } from '@/context/AppContext';
 export default function HomePage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { subjects, storedCodes } = useAppContext();
+  const { storedCodes, subjects } = useAppContext();
 
   const handleScanSuccess = useCallback(async (scannedData: { qrData: string, subject: string, status: 'Logged In' | 'Logged Out' }) => {
     
     let studentName = '';
-    let isValid = false;
+    let isValidCode = false;
 
-    // Step 1: Try to find a matching code in local cache first.
     let matchingCode = storedCodes.find(c => c.data === scannedData.qrData);
 
     if (matchingCode) {
         studentName = matchingCode.name;
-        isValid = true;
+        isValidCode = true;
     } else {
-        // If not in cache, query Firestore.
         try {
             const q = query(collection(db, "qrCodes"), where("data", "==", scannedData.qrData), limit(1));
             const querySnapshot = await getDocs(q);
@@ -38,25 +36,37 @@ export default function HomePage() {
                 const doc = querySnapshot.docs[0];
                 const code = doc.data() as StoredQrCode;
                 studentName = code.name;
-                isValid = true;
+                isValidCode = true;
             }
         } catch (error) {
             console.error("Error querying Firestore for QR code:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Could not verify QR code. Please try again.',
+            });
+            return;
         }
     }
 
-    // Step 2: If no matching code was found anywhere, assume it's a third-party QR
-    // and use its raw text content as the name.
-    if (!studentName) {
-        studentName = scannedData.qrData;
-        isValid = false; // It's an external code, so not 'valid' in our system
+    if (!isValidCode) {
+        toast({
+            variant: 'destructive',
+            title: (
+                <div className="flex items-center gap-2">
+                    <XCircle className="h-5 w-5" />
+                    <span>Scan Failed</span>
+                </div>
+            ),
+            description: 'This QR code is not recognized by the system.',
+        });
+        return;
     }
     
     const newRecordBase = {
         studentName: studentName,
         subject: scannedData.subject,
         status: scannedData.status,
-        isValid: isValid,
     };
 
     if (newRecordBase.status === 'Logged In') {
