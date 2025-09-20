@@ -25,11 +25,27 @@ export default function HistoryPage() {
     try {
         const recordsCollection = collection(db, "attendanceRecords");
         const recordsSnapshot = await getDocs(recordsCollection);
-        const batch = writeBatch(db);
-        recordsSnapshot.forEach((recordDoc) => {
-            batch.delete(doc(db, "attendanceRecords", recordDoc.id));
-        });
-        await batch.commit();
+        
+        if (recordsSnapshot.empty) {
+            toast({ title: "Info", description: "History is already empty." });
+            return;
+        }
+
+        // Firestore limits batches to 500 operations.
+        const batchSize = 500;
+        const batches = [];
+        
+        for (let i = 0; i < recordsSnapshot.docs.length; i += batchSize) {
+            const batch = writeBatch(db);
+            const chunk = recordsSnapshot.docs.slice(i, i + batchSize);
+            chunk.forEach((recordDoc) => {
+                batch.delete(recordDoc.ref);
+            });
+            batches.push(batch.commit());
+        }
+
+        await Promise.all(batches);
+        
         toast({ title: "Success", description: "Attendance history cleared." });
     } catch (error) {
         console.error("Error clearing history:", error);
