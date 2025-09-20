@@ -24,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { StoredQrCode } from '@/types';
 import { db } from '@/lib/firebase';
@@ -39,6 +38,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const [studentName, setStudentName] = useState('');
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [codeToDelete, setCodeToDelete] = useState<StoredQrCode | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -47,7 +47,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return timeB - timeA;
   });
-
 
   useEffect(() => {
     if (editingCodeId && editInputRef.current) {
@@ -104,6 +103,7 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   const handleDeleteCode = async (id: string) => {
     await deleteDoc(doc(db, "qrCodes", id));
     toast({ title: "Success", description: "QR Code removed." });
+    setCodeToDelete(null);
   };
   
   const handleEditStart = (code: StoredQrCode) => {
@@ -131,7 +131,6 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
     handleEditCancel();
   };
   
-
   return (
     <Card>
       <CardHeader>
@@ -189,30 +188,9 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
                     <Button size="icon" variant="ghost" onClick={() => handleDownload(code)} aria-label="Download QR Code">
                       <Download className="h-4 w-4" />
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" aria-label="Delete QR Code">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the QR code for {code.name}. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteCode(code.id)}
-                            className="bg-destructive hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCodeToDelete(code)} aria-label="Delete QR Code">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -226,6 +204,25 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
             </div>
          )}
       </CardContent>
+      <AlertDialog open={!!codeToDelete} onOpenChange={(isOpen) => !isOpen && setCodeToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the QR code for {codeToDelete?.name}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setCodeToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => codeToDelete && handleDeleteCode(codeToDelete.id)}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </Card>
   );
 };
