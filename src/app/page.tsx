@@ -67,7 +67,7 @@ export default function HomePage() {
             description: 'Could not save attendance record.',
         });
     }
-  }, [toast]);
+  }, [toast, records]);
 
   return (
     <div className="flex flex-col h-screen bg-background">

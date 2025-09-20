@@ -75,7 +75,6 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
         return;
     }
 
-    const currentEditingState = editingSubject;
     setEditingSubject(null);
 
     try {

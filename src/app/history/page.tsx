@@ -26,8 +26,8 @@ export default function HistoryPage() {
         const recordsCollection = collection(db, "attendanceRecords");
         const recordsSnapshot = await getDocs(recordsCollection);
         const batch = writeBatch(db);
-        recordsSnapshot.forEach((doc) => {
-            batch.delete(doc.ref);
+        recordsSnapshot.forEach((recordDoc) => {
+            batch.delete(doc(db, "attendanceRecords", recordDoc.id));
         });
         await batch.commit();
         toast({ title: "Success", description: "Attendance history cleared." });
