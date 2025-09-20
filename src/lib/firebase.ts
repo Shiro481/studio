@@ -1,3 +1,5 @@
+// This file is not used in the local storage version of the app.
+// It is kept for potential future re-integration with Firebase.
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
@@ -10,7 +12,6 @@ const firebaseConfig = {
   appId: "1:936098307938:web:0f60a8ad237085fc1f163b"
 };
 
-// Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 

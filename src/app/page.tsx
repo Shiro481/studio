@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AttendanceScanner } from '@/components/attendance-scanner';
@@ -8,72 +8,56 @@ import type { AttendanceRecord, StoredQrCode } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { History, QrCode, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function HomePage() {
   const router = useRouter();
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
+  const [subjects] = useLocalStorage<string[]>('subjects', []);
+  const [storedCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
+  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubSubjects = onSnapshot(query(collection(db, 'subjects'), orderBy('name')), (snapshot) => {
-      setSubjects(snapshot.docs.map(doc => doc.data().name));
-    });
-    
-    const unsubQrCodes = onSnapshot(query(collection(db, 'qrCodes'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setStoredCodes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode)));
-    });
-
-    return () => {
-      unsubSubjects();
-      unsubQrCodes();
-    };
-  }, []);
-
-  const handleScanSuccess = async (newRecord: Omit<AttendanceRecord, 'id'>) => {
+  const handleScanSuccess = async (newRecord: Omit<AttendanceRecord, 'id' | 'timestamp'> & { studentName: string }) => {
     if (newRecord.status === 'Logged In') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-      const q = query(
-        collection(db, 'attendanceRecords'),
-        where('studentName', '==', newRecord.studentName),
-        where('subject', '==', newRecord.subject),
-        where('status', '==', 'Logged In'),
-        where('timestamp', '>=', today.toISOString()),
-        where('timestamp', '<', tomorrow.toISOString()),
-        orderBy('timestamp', 'desc'),
-        limit(1)
-      );
+        const alreadyLoggedIn = records.some(
+            (record) =>
+                record.studentName === newRecord.studentName &&
+                record.subject === newRecord.subject &&
+                record.status === 'Logged In' &&
+                new Date(record.timestamp) >= today
+        );
 
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const existingRecord = querySnapshot.docs[0].data();
-        toast({
-          variant: 'destructive',
-          title: (
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5" />
-              <span>Login Failed</span>
-            </div>
-          ),
-          description: `${newRecord.studentName} has already logged in for ${newRecord.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
-        });
-        return;
-      }
+        if (alreadyLoggedIn) {
+            const existingRecord = records.find(
+              (record) =>
+                record.studentName === newRecord.studentName &&
+                record.subject === newRecord.subject &&
+                record.status === 'Logged In' &&
+                new Date(record.timestamp) >= today
+            )!;
+            toast({
+                variant: 'destructive',
+                title: (
+                    <div className="flex items-center gap-2">
+                        <XCircle className="h-5 w-5" />
+                        <span>Login Failed</span>
+                    </div>
+                ),
+                description: `${newRecord.studentName} has already logged in for ${newRecord.subject} at ${new Date(existingRecord.timestamp).toLocaleTimeString()}.`,
+            });
+            return;
+        }
     }
     
-    try {
-      await addDoc(collection(db, "attendanceRecords"), newRecord);
-    } catch (e) {
-      console.error("Error adding document: ", e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not save attendance record.' });
-    }
+    const recordWithId: AttendanceRecord = {
+        ...newRecord,
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+    };
+    setRecords(prev => [...prev, recordWithId]);
   };
 
   return (

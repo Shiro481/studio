@@ -6,23 +6,11 @@ import { QrCodeGenerator } from '@/components/qr-code-generator';
 import { SubjectManager } from '@/components/subject-manager';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, History } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const [subjects, setSubjects] = useState<string[]>([]);
-
-  useEffect(() => {
-    const q = query(collection(db, 'subjects'), orderBy('name'));
-    const unsub = onSnapshot(q, (snapshot) => {
-        const subjectsData = snapshot.docs.map(doc => doc.data().name);
-        setSubjects(subjectsData);
-    });
-    return () => unsub();
-  }, []);
-
+  const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', []);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -45,7 +33,7 @@ export default function GeneratorPage() {
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
             <QrCodeGenerator />
-            <SubjectManager subjects={subjects} />
+            <SubjectManager subjects={subjects} setSubjects={setSubjects} />
         </div>
       </main>
     </div>

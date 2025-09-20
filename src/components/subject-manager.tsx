@@ -22,68 +22,42 @@ import {
 import { Input } from '@/components/ui/input';
 import { X, Edit, Plus, BookCopy, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 
 
 interface SubjectManagerProps {
   subjects: string[];
+  setSubjects: (value: string[] | ((val: string[]) => string[])) => void;
 }
 
-export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
+export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects }) => {
   const [newSubject, setNewSubject] = useState('');
   const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
 
-  const handleAddSubject = async () => {
+  const handleAddSubject = () => {
     const trimmedSubject = newSubject.trim();
     if (trimmedSubject && !subjects.includes(trimmedSubject)) {
-      try {
-        await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
-        setNewSubject('');
-        toast({ title: "Success", description: "Subject added." });
-      } catch (error) {
-        console.error("Error adding subject: ", error);
-        toast({ title: "Error", description: "Failed to add subject.", variant: "destructive" });
-      }
+      setSubjects(prev => [...prev, trimmedSubject]);
+      setNewSubject('');
+      toast({ title: "Success", description: "Subject added." });
     } else if (subjects.includes(trimmedSubject)) {
       toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
     }
   };
 
-  const handleUpdateSubject = async () => {
+  const handleUpdateSubject = () => {
     if (editingSubject && editingSubject.newName.trim() && !subjects.includes(editingSubject.newName.trim())) {
-      try {
-        const q = query(collection(db, 'subjects'), where('name', '==', editingSubject.oldName));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const docRef = querySnapshot.docs[0].ref;
-            await updateDoc(docRef, { name: editingSubject.newName.trim() });
-            toast({ title: "Success", description: "Subject updated." });
-        }
-        setEditingSubject(null);
-      } catch (error) {
-        console.error("Error updating subject: ", error);
-        toast({ title: "Error", description: "Failed to update subject.", variant: "destructive" });
-      }
+      setSubjects(prev => prev.map(s => s === editingSubject.oldName ? editingSubject.newName.trim() : s));
+      toast({ title: "Success", description: "Subject updated." });
+      setEditingSubject(null);
     } else if (editingSubject && subjects.includes(editingSubject.newName.trim())) {
         toast({ title: "Error", description: "Subject already exists.", variant: "destructive" });
     }
   };
 
-  const handleDeleteSubject = async (subjectName: string) => {
-    try {
-        const q = query(collection(db, 'subjects'), where('name', '==', subjectName));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const docRef = querySnapshot.docs[0].ref;
-            await deleteDoc(docRef);
-            toast({ title: "Success", description: "Subject removed." });
-        }
-    } catch (error) {
-        console.error("Error deleting subject: ", error);
-        toast({ title: "Error", description: "Failed to remove subject.", variant: "destructive" });
-    }
+  const handleDeleteSubject = (subjectName: string) => {
+    setSubjects(prev => prev.filter(s => s !== subjectName));
+    toast({ title: "Success", description: "Subject removed." });
   };
 
   return (
@@ -93,7 +67,7 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
         <CardDescription>Add, edit, or remove subjects.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Dialog onOpenChange={() => setEditingSubject(null)}>
+        <Dialog onOpenChange={(isOpen) => { if (!isOpen) setEditingSubject(null)}}>
           <DialogTrigger asChild>
             <Button className="w-full">
               <BookCopy className="mr-2" />
@@ -120,7 +94,7 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
                 </Button>
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                {subjects.map((subject) => (
+                {[...subjects].sort().map((subject) => (
                   <div key={subject} className="flex items-center gap-2">
                     {editingSubject?.oldName === subject ? (
                       <Input

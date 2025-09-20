@@ -26,29 +26,29 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { StoredQrCode } from '@/types';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 export const QrCodeGenerator: FC = () => {
   const [studentName, setStudentName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<StoredQrCode | null>(null);
-  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
+  const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
+  const [sortedCodes, setSortedCodes] = useState<StoredQrCode[]>([]);
 
   useEffect(() => {
     setIsClient(true);
-    const q = query(collection(db, 'qrCodes'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snapshot) => {
-        const codes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
-        setStoredCodes(codes);
-    });
-    return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const sorted = [...storedCodes].sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    setSortedCodes(sorted);
+  }, [storedCodes]);
+
 
   useEffect(() => {
     if (editingCodeId && editInputRef.current) {
@@ -65,22 +65,18 @@ export const QrCodeGenerator: FC = () => {
     const qrData = crypto.randomUUID();
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=200x200&format=png`;
 
-    const newCode = {
+    const newCode: StoredQrCode = {
+      id: qrData,
       name: name,
       url: url,
       data: qrData,
       createdAt: new Date().toISOString(),
     };
     
-    try {
-        const docRef = await addDoc(collection(db, 'qrCodes'), newCode);
-        setGeneratedCode({ ...newCode, id: docRef.id });
-        setStudentName('');
-        toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
-    } catch (e) {
-        console.error("Error adding document: ", e);
-        toast({ title: "Error", description: "Could not save QR code.", variant: "destructive" });
-    }
+    setStoredCodes(prev => [newCode, ...prev]);
+    setGeneratedCode(newCode);
+    setStudentName('');
+    toast({ title: "Success", description: `QR Code for ${newCode.name} generated.` });
   };
   
   const handleDownload = async (code: StoredQrCode) => {
@@ -103,14 +99,9 @@ export const QrCodeGenerator: FC = () => {
     }
   };
 
-  const handleDeleteCode = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, "qrCodes", id));
-        toast({ title: "Success", description: "QR Code removed." });
-    } catch (error) {
-        console.error("Error removing document: ", error);
-        toast({ title: "Error", description: "Could not remove QR code.", variant: "destructive" });
-    }
+  const handleDeleteCode = (id: string) => {
+    setStoredCodes(prev => prev.filter(c => c.id !== id));
+    toast({ title: "Success", description: "QR Code removed." });
   };
   
   const handleEditStart = (code: StoredQrCode) => {
@@ -123,7 +114,7 @@ export const QrCodeGenerator: FC = () => {
     setEditingName('');
   };
 
-  const handleEditSave = async () => {
+  const handleEditSave = () => {
     if (!editingCodeId) return;
 
     if (!editingName.trim()) {
@@ -131,16 +122,9 @@ export const QrCodeGenerator: FC = () => {
       return;
     }
     
-    try {
-        const codeDocRef = doc(db, 'qrCodes', editingCodeId);
-        await updateDoc(codeDocRef, { name: editingName.trim() });
-        toast({ title: "Success", description: "Student name updated." });
-    } catch (error) {
-        console.error("Error updating document: ", error);
-        toast({ title: "Error", description: "Could not update student name.", variant: "destructive" });
-    } finally {
-        handleEditCancel();
-    }
+    setStoredCodes(prev => prev.map(c => c.id === editingCodeId ? { ...c, name: editingName.trim() } : c));
+    toast({ title: "Success", description: "Student name updated." });
+    handleEditCancel();
   };
 
   return (
@@ -182,11 +166,11 @@ export const QrCodeGenerator: FC = () => {
           </div>
         )}
 
-        {isClient && storedCodes.length > 0 && (
+        {isClient && sortedCodes.length > 0 && (
           <div className="space-y-3 pt-4 border-t">
             <h4 className="text-sm font-medium text-muted-foreground">Saved QR Codes</h4>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-              {storedCodes.map(code => (
+              {sortedCodes.map(code => (
                 <div key={code.id} className="flex items-center justify-between p-2 bg-muted rounded-md gap-2">
                    <div className="flex items-center gap-2 flex-grow min-w-0">
                     <img src={code.url} alt={code.name} className="w-8 h-8 rounded-sm bg-white flex-shrink-0" data-ai-hint="qr code" />
@@ -243,7 +227,7 @@ export const QrCodeGenerator: FC = () => {
             </div>
           </div>
         )}
-         {isClient && storedCodes.length === 0 && !generatedCode && (
+         {isClient && sortedCodes.length === 0 && !generatedCode && (
             <div className="text-center text-muted-foreground py-4 border-t">
                 <List className="mx-auto h-8 w-8 mb-2" />
                 No QR codes generated yet.
