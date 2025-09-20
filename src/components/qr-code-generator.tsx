@@ -101,9 +101,14 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
   };
 
   const handleDeleteCode = async (id: string) => {
-    await deleteDoc(doc(db, "qrCodes", id));
-    toast({ title: "Success", description: "QR Code removed." });
-    setCodeToDelete(null);
+    try {
+        await deleteDoc(doc(db, "qrCodes", id));
+        toast({ title: "Success", description: "QR Code removed." });
+    } catch(e) {
+        toast({ title: "Error", description: "Failed to remove QR Code.", variant: 'destructive' });
+    } finally {
+        setCodeToDelete(null);
+    }
   };
   
   const handleEditStart = (code: StoredQrCode) => {
@@ -124,11 +129,16 @@ export const QrCodeGenerator: FC<QrCodeGeneratorProps> = ({ storedCodes }) => {
       return;
     }
     
-    const codeDocRef = doc(db, "qrCodes", editingCodeId);
-    await updateDoc(codeDocRef, { name: editingName.trim() });
-
-    toast({ title: "Success", description: "Student name updated." });
-    handleEditCancel();
+    try {
+        const codeDocRef = doc(db, "qrCodes", editingCodeId);
+        await updateDoc(codeDocRef, { name: editingName.trim() });
+        toast({ title: "Success", description: "Student name updated." });
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to update name.", variant: "destructive" });
+        console.error("Error updating document:", error);
+    } finally {
+        handleEditCancel();
+    }
   };
   
   return (
