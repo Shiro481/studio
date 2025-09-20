@@ -118,18 +118,15 @@ export default function HomePage() {
             scanDate: timestamp.split('T')[0], // Add YYYY-MM-DD for efficient querying
         });
         
-        // Use a short timeout to allow Firestore's real-time listener to update the UI
-        setTimeout(() => {
-            toast({
-                title: (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span>Success</span>
-                  </div>
-                ),
-                description: `Scan processed for subject ${scannedData.subject}.`,
-            });
-        }, 100);
+        toast({
+            title: (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>Success</span>
+              </div>
+            ),
+            description: `Scan processed for subject ${scannedData.subject}.`,
+        });
 
     } catch (error) {
         console.error("Error adding document: ", error);
