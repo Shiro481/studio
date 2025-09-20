@@ -7,7 +7,7 @@ import type { AttendanceRecord } from '@/types';
 import { SwiftAttendLogo } from '@/components/icons';
 import { Scan, QrCode } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, writeBatch, getDocs } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
