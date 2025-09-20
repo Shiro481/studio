@@ -105,15 +105,17 @@ export default function HomePage() {
             timestamp: timestamp,
             scanDate: timestamp.split('T')[0], // Add YYYY-MM-DD for efficient querying
         });
-        toast({
-            title: (
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <span>Success</span>
-              </div>
-            ),
-            description: `Scan processed for subject ${scannedData.subject}.`,
-        });
+        setTimeout(() => {
+            toast({
+                title: (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span>Success</span>
+                  </div>
+                ),
+                description: `Scan processed for subject ${scannedData.subject}.`,
+            });
+        }, 100);
     } catch (error) {
         console.error("Error adding document: ", error);
         toast({

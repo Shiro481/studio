@@ -56,7 +56,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
   }, []);
   
-  const handleScan = useCallback(async (qrData: string) => {
+  const handleScan = useCallback((qrData: string) => {
     setIsProcessing(true);
     setIsScanning(false); 
     
@@ -66,8 +66,8 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
             subject: selectedSubject,
             status: scanMode === 'in' ? 'Logged In' : 'Logged Out',
         };
-
-      await onScanSuccess(scanData);
+      
+      onScanSuccess(scanData);
 
     } else {
       console.error('Failed to process QR code: No data found');
@@ -82,8 +82,16 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         variant: 'destructive',
       });
     }
-    setIsProcessing(false);
-  }, [scanMode, selectedSubject, onScanSuccess, toast]);
+
+    // A small delay to give feedback and prevent immediate re-scans
+    setTimeout(() => {
+        setIsProcessing(false);
+        if(!isScanning){ // If user has not manually started scanning again
+            setIsScanning(true); // resume scanning
+        }
+    }, 500);
+
+  }, [scanMode, selectedSubject, onScanSuccess, toast, isScanning]);
 
   const tick = useCallback(() => {
     if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA && canvasRef.current) {
