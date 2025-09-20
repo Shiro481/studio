@@ -25,15 +25,13 @@ import { X, Edit, Plus, BookCopy, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { Skeleton } from './ui/skeleton';
 
 
 interface SubjectManagerProps {
   subjects: string[];
-  loading: boolean;
 }
 
-export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) => {
+export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
   const [newSubject, setNewSubject] = useState('');
   const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
@@ -103,20 +101,6 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, loading }) =
         toast({ title: "Error", description: "Could not remove subject.", variant: "destructive" });
     }
   };
-  
-  if (loading) {
-      return (
-          <Card>
-              <CardHeader>
-                  <Skeleton className="h-8 w-3/5" />
-                  <Skeleton className="h-4 w-4/5" />
-              </CardHeader>
-              <CardContent>
-                  <Skeleton className="h-10 w-full" />
-              </CardContent>
-          </Card>
-      )
-  }
 
   return (
     <Card>

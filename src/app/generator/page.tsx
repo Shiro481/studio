@@ -10,7 +10,7 @@ import { useAppContext } from '@/context/AppContext';
 
 export default function GeneratorPage() {
   const router = useRouter();
-  const { subjects, storedCodes, loading } = useAppContext();
+  const { subjects, storedCodes } = useAppContext();
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -33,7 +33,7 @@ export default function GeneratorPage() {
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
             <QrCodeGenerator storedCodes={storedCodes} />
-            <SubjectManager subjects={subjects} loading={loading} />
+            <SubjectManager subjects={subjects} />
         </div>
       </main>
     </div>

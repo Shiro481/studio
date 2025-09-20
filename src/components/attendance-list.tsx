@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FC } from 'react';
+import { type FC } from 'react';
 import { Download, ListChecks, Trash2, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,10 +39,9 @@ interface AttendanceListProps {
   records: AttendanceRecord[];
   onClear: () => void;
   onDelete: (id: string) => void;
-  loading: boolean;
 }
 
-export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete, loading }) => {
+export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDelete }) => {
 
   const exportToCSV = () => {
     const headers = ['Student Name', 'Subject', 'Timestamp', 'Status', 'QR Valid'];
@@ -83,7 +82,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  disabled={loading || records.length === 0}
+                  disabled={records.length === 0}
                   variant="destructive"
                   size="sm"
                 >
@@ -108,7 +107,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
             </AlertDialog>
             <Button
               onClick={exportToCSV}
-              disabled={loading || records.length === 0}
+              disabled={records.length === 0}
               variant="outline"
               size="sm"
             >
@@ -131,20 +130,7 @@ export const AttendanceList: FC<AttendanceListProps> = ({ records, onClear, onDe
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                  <>
-                    {[...Array(5)].map((_, i) => (
-                        <TableRow key={i}>
-                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                            <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
-                            <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                        </TableRow>
-                    ))}
-                  </>
-              ) : records.length > 0 ? (
+              {records.length > 0 ? (
                 records.map(record => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">

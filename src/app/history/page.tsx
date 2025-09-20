@@ -13,7 +13,7 @@ import { useAppContext } from '@/context/AppContext';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { records, loading } = useAppContext();
+  const { records } = useAppContext();
   const { toast } = useToast();
 
   const handleClearHistory = async () => {
@@ -67,7 +67,7 @@ export default function HistoryPage() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          <AttendanceList records={records} onClear={handleClearHistory} onDelete={handleDeleteRecord} loading={loading} />
+          <AttendanceList records={records} onClear={handleClearHistory} onDelete={handleDeleteRecord} />
         </div>
       </main>
     </div>
