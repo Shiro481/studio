@@ -6,6 +6,7 @@ export type AttendanceRecord = {
   subject: string;
   isValid: boolean;
   status: 'Logged In' | 'Logged Out';
+  scanDate?: string;
 };
 
 export interface StoredQrCode {
