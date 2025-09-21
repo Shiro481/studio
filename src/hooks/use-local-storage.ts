@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,21 +7,19 @@ import { useState, useEffect, useCallback } from 'react';
 // use with client-side-only preferences in the future.
 
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  
-  // Client-side only effect to read from localStorage
-  useEffect(() => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    // This function now runs only once on component mount, client-side.
     if (typeof window === 'undefined') {
-      return;
+      return initialValue;
     }
     try {
       const item = window.localStorage.getItem(key);
-      setStoredValue(item ? JSON.parse(item) : initialValue);
+      return item ? JSON.parse(item) : initialValue;
     } catch (error) {
       console.error(error);
-      setStoredValue(initialValue);
+      return initialValue;
     }
-  }, [key, initialValue]);
+  });
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
@@ -34,23 +33,5 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     }
   };
   
-  const handleStorageChange = useCallback((event: StorageEvent) => {
-    if (event.key === key && event.newValue) {
-      try {
-        setStoredValue(JSON.parse(event.newValue));
-      } catch (error) {
-        console.error(error);
-      }
-    }
-  }, [key]);
-
-  useEffect(() => {
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [handleStorageChange]);
-
-
   return [storedValue, setValue];
 }
