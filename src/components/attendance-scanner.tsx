@@ -69,13 +69,13 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
 
     if (success) {
       setIsScanning(false);
+    } else {
+       // Only if scan failed (e.g. duplicate), allow scanning again after a short delay
+       setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
     }
     
-    // Short cooldown before allowing another scan attempt, even on failure
-    setTimeout(() => {
-        setIsProcessing(false);
-    }, 1000);
-
   }, [isProcessing, scanMode, selectedSubject, onScanSuccess]);
 
   const tick = useCallback(() => {
@@ -102,10 +102,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
         }
       }
     }
-    if (isScanning) {
+    if (isScanning && !isProcessing) {
       animationFrameRef.current = requestAnimationFrame(tick);
     }
-  }, [handleScan, isScanning]);
+  }, [handleScan, isScanning, isProcessing]);
 
   useEffect(() => {
     if (isScanning) {
@@ -186,6 +186,10 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
     }
     setIsScanning(prev => !prev);
   };
+  
+  const handleSubjectChange = useCallback((value: string) => {
+    setSelectedSubject(value);
+  }, []);
 
   return (
     <Card>
@@ -198,7 +202,7 @@ export const AttendanceScanner: FC<AttendanceScannerProps> = ({ onScanSuccess, s
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="subject-select">Subject</Label>
-          <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={isScanning}>
+          <Select value={selectedSubject} onValueChange={handleSubjectChange} disabled={isScanning}>
             <SelectTrigger id="subject-select">
               <SelectValue placeholder="Select a subject" />
             </SelectTrigger>
