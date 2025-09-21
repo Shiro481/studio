@@ -5,10 +5,8 @@ import { Inter } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster";
 import { AppProvider } from '@/context/AppContext';
-import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import type { StoredQrCode } from '@/types';
+import type { StoredQrCode, AttendanceRecord } from '@/types';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -18,47 +16,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [storedCodes, setStoredCodes] = useState<StoredQrCode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [subjects, setSubjects] = useLocalStorage<string[]>('subjects', []);
+  const [storedCodes, setStoredCodes] = useLocalStorage<StoredQrCode[]>('qrCodes', []);
+  const [records, setRecords] = useLocalStorage<AttendanceRecord[]>('attendanceRecords', []);
 
-  // States to track loading of each collection
-  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
-  const [codesLoaded, setCodesLoaded] = useState(false);
+  // While useLocalStorage is synchronous on the client after the first render,
+  // the initial server render will have an empty state. We can show a loading state
+  // or just let it render with initial empty data. For this app, empty data is fine.
+  const loading = false; 
 
-
-  useEffect(() => {
-    const subjectsQuery = query(collection(db, 'subjects'));
-    const unsubscribeSubjects = onSnapshot(subjectsQuery, (querySnapshot) => {
-      const subjectsData = querySnapshot.docs.map(doc => doc.data().name as string);
-      setSubjects(subjectsData);
-      setSubjectsLoaded(true);
-    }, (error) => {
-      console.error("Error fetching subjects:", error);
-      setSubjectsLoaded(true);
-    });
-
-    const codesQuery = query(collection(db, 'qrCodes'));
-    const unsubscribeCodes = onSnapshot(codesQuery, (querySnapshot) => {
-      const codesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoredQrCode));
-      setStoredCodes(codesData);
-      setCodesLoaded(true);
-    }, (error) => {
-        console.error("Error fetching QR codes:", error);
-        setCodesLoaded(true);
-    });
-
-    return () => {
-      unsubscribeSubjects();
-      unsubscribeCodes();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (subjectsLoaded && codesLoaded) {
-      setLoading(false);
-    }
-  }, [subjectsLoaded, codesLoaded]);
+  const appContextValue = {
+    subjects,
+    setSubjects,
+    storedCodes,
+    setStoredCodes,
+    records,
+    setRecords,
+    loading,
+  };
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -71,7 +46,7 @@ export default function RootLayout({
           <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
-        <AppProvider value={{ subjects, storedCodes, records: [], loading }}>
+        <AppProvider value={appContextValue}>
             {children}
         </AppProvider>
         <Toaster />

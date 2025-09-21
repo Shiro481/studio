@@ -1,13 +1,16 @@
 
 "use client";
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode, type Dispatch, type SetStateAction } from 'react';
 import type { StoredQrCode, AttendanceRecord } from '@/types';
 
 interface AppContextType {
   subjects: string[];
+  setSubjects: Dispatch<SetStateAction<string[]>>;
   storedCodes: StoredQrCode[];
-  records: AttendanceRecord[]; // This will now be an empty array, history is managed locally.
+  setStoredCodes: Dispatch<SetStateAction<StoredQrCode[]>>;
+  records: AttendanceRecord[];
+  setRecords: Dispatch<SetStateAction<AttendanceRecord[]>>;
   loading: boolean;
 }
 

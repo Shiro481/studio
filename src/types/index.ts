@@ -5,7 +5,6 @@ export type AttendanceRecord = {
   timestamp: string;
   subject: string;
   status: 'Logged In' | 'Logged Out';
-  scanDate?: string;
 };
 
 export interface StoredQrCode {

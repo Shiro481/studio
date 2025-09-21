@@ -23,20 +23,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { X, Edit, Plus, BookCopy, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-
 
 interface SubjectManagerProps {
   subjects: string[];
+  setSubjects: (subjects: string[] | ((prev: string[]) => string[])) => void;
 }
 
-export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
+export const SubjectManager: FC<SubjectManagerProps> = ({ subjects, setSubjects }) => {
   const [newSubject, setNewSubject] = useState('');
   const [editingSubject, setEditingSubject] = useState<{ oldName: string; newName: string } | null>(null);
   const { toast } = useToast();
 
-  const handleAddSubject = async () => {
+  const handleAddSubject = () => {
     const trimmedSubject = newSubject.trim();
     if (!trimmedSubject) return;
 
@@ -45,16 +43,12 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
       return;
     }
     
+    setSubjects(prev => [...prev, trimmedSubject]);
     setNewSubject('');
-    try {
-      await addDoc(collection(db, 'subjects'), { name: trimmedSubject });
-      toast({ title: "Success", description: "Subject added." });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not add subject.", variant: "destructive" });
-    }
+    toast({ title: "Success", description: "Subject added." });
   };
 
-  const handleUpdateSubject = async () => {
+  const handleUpdateSubject = () => {
     if (!editingSubject || !editingSubject.newName.trim()) {
         setEditingSubject(null);
         return;
@@ -73,33 +67,14 @@ export const SubjectManager: FC<SubjectManagerProps> = ({ subjects }) => {
         return;
     }
 
+    setSubjects(prev => prev.map(s => s === oldName ? newNameTrimmed : s));
     setEditingSubject(null);
-
-    try {
-        const q = query(collection(db, "subjects"), where("name", "==", oldName));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const docId = querySnapshot.docs[0].id;
-            await updateDoc(doc(db, "subjects", docId), { name: newNameTrimmed });
-            toast({ title: "Success", description: "Subject updated." });
-        }
-    } catch (error) {
-        toast({ title: "Error", description: "Could not update subject.", variant: "destructive" });
-    }
+    toast({ title: "Success", description: "Subject updated." });
   };
 
-  const handleDeleteSubject = async (subjectName: string) => {
-    try {
-        const q = query(collection(db, "subjects"), where("name", "==", subjectName));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const docId = querySnapshot.docs[0].id;
-            await deleteDoc(doc(db, "subjects", docId));
-            toast({ title: "Success", description: "Subject removed." });
-        }
-    } catch (error) {
-        toast({ title: "Error", description: "Could not remove subject.", variant: "destructive" });
-    }
+  const handleDeleteSubject = (subjectName: string) => {
+    setSubjects(prev => prev.filter(s => s !== subjectName));
+    toast({ title: "Success", description: "Subject removed." });
   };
 
   return (
